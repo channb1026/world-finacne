@@ -305,6 +305,77 @@ html, body, #root {
   width: 100%;
   background: var(--bg-deep);
 }
+/* 地图区域预设按钮条 */
+.map-presets-bar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+.map-presets-bar__btn {
+  pointer-events: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.map-presets-bar__btn:hover {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--glow);
+}
+/* 地图图例：当前图层说明 */
+.map-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.map-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 0 0 var(--glow-dim);
+  animation: spot-pulse 1.8s ease-in-out infinite;
+}
+.map-legend__text {
+  white-space: nowrap;
+}
+.map-legend__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: auto;
+}
+.map-legend__toggle input {
+  margin: 0;
+  cursor: pointer;
+}
+.map-legend__toggle:hover {
+  color: var(--text);
+}
 /* 亮点呼吸动画 */
 .spot-pulse {
   width: 20px;
@@ -691,6 +762,20 @@ html, body, #root {
   font-size: 10px;
   color: var(--text-muted);
   margin-left: 4px;
+}
+.bottom-bar__copy-link {
+  margin-left: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.bottom-bar__copy-link:hover {
+  color: var(--accent);
+  border-color: var(--glow);
 }
 .bottom-bar__calendar {
   display: flex;

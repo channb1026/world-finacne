@@ -123,6 +123,30 @@ const CACHE_MS = 30 * 1000 // 30 秒
 const REGION_ITEMS_MAX = 30 // 地区情报最多返回条数
 let failedSourcesLogged = new Set()
 
+/** 按源熔断：每个 feed 的 url 独立计数，连续失败 N 次后暂停请求，COOLDOWN_MS 后再试 */
+const CIRCUIT_FAILURE_THRESHOLD = 3
+const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 分钟
+const circuitByUrl = new Map() // url -> { failures, lastAttempt }
+
+function isCircuitOpen(url) {
+  const state = circuitByUrl.get(url)
+  if (!state) return false
+  if (state.failures < CIRCUIT_FAILURE_THRESHOLD) return false
+  if (Date.now() - state.lastAttempt >= CIRCUIT_COOLDOWN_MS) return false // 过了冷却期，可重试
+  return true
+}
+
+function recordCircuitFailure(url) {
+  const state = circuitByUrl.get(url) || { failures: 0, lastAttempt: 0 }
+  state.failures = state.failures + 1
+  state.lastAttempt = Date.now()
+  circuitByUrl.set(url, state)
+}
+
+function recordCircuitSuccess(url) {
+  circuitByUrl.set(url, { failures: 0, lastAttempt: Date.now() })
+}
+
 function formatTime(pubDate) {
   if (!pubDate) return ''
   try {
@@ -193,8 +217,16 @@ async function refreshCache() {
   const breakingItemsBySource = {}
   await Promise.all(
     RSS_FEEDS.map(async (f) => {
+      if (isCircuitOpen(f.url)) {
+        return { items: [], source: f.source, failed: false }
+      }
       const { items, source, failed } = await fetchFeed(f, id)
-      if (failed) failedSources.push(source)
+      if (failed) {
+        failedSources.push(source)
+        recordCircuitFailure(f.url)
+      } else {
+        recordCircuitSuccess(f.url)
+      }
       items.forEach((item) => {
         item.id = String(id++)
         all.push(item)

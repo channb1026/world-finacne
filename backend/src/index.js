@@ -12,6 +12,10 @@ app.use(express.json())
 registerNewsRoutes(app)
 registerMarketRoutes(app)
 
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, ts: Date.now() })
+})
+
 app.listen(PORT, () => {
-  console.log(`Backend API http://localhost:${PORT} (GET /api/news, /api/map-spots, /api/rates, /api/rates-panel, /api/stocks, /api/key-metrics, /api/commodities, /api/a-share/indices, /api/a-share/news, /api/ticker, /api/calendar)`)
+  console.log(`Backend API http://localhost:${PORT} (GET /api/health, /api/news, /api/map-spots, /api/rates, ... /api/calendar)`)
 })
