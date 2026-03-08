@@ -24,17 +24,22 @@ const parser = new Parser({
   requestOptions: { agent: httpsAgent },
 })
 
-// 地图按国家划分：点击显示「与该国相关」的资讯（Google News 按国家名搜索），非「该国可读」的资讯
+// 地图按国家/地区划分：台湾、香港、澳门、美加、日韩俄、印度泰国、东欧西欧、中东、南美等
 const REGIONS = [
-  'US', 'UK', 'CN', 'CA', 'DE', 'FR', 'IT', 'ES', 'NL', 'RU',
-  'JP', 'KR', 'IN', 'AU', 'BR', 'MX', 'AE', 'SA', 'TR', 'PL', 'SG', 'ID', 'TH', 'VN',
+  'US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE', 'EC', 'VE', 'UY', 'PY', 'BO',
+  'UK', 'IE', 'FR', 'DE', 'NL', 'BE', 'AT', 'CH', 'IT', 'ES', 'PT', 'SE', 'NO', 'DK', 'FI', 'IS',
+  'PL', 'CZ', 'SK', 'HU', 'RO', 'BG', 'GR', 'HR', 'RS', 'UA', 'RU',
+  'TR', 'AE', 'SA', 'QA', 'KW', 'IL', 'JO', 'EG',
+  'CN', 'TW', 'HK', 'MO', 'JP', 'KR', 'IN', 'TH', 'VN', 'SG', 'MY', 'ID', 'PH', 'AU', 'NZ', 'ZA',
 ]
 
-/** 地区情报用：各国「与该国相关」的搜索词（Google News search），地图点数与侧栏内容均据此 */
+/** 地区情报用：各国/地区「与该地相关」的搜索词（Google News search） */
 const REGION_SEARCH_QUERY = {
-  US: 'United States', UK: 'United Kingdom', CN: 'China', CA: 'Canada', DE: 'Germany', FR: 'France', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', RU: 'Russia',
-  JP: 'Japan', KR: 'South Korea', IN: 'India', AU: 'Australia', BR: 'Brazil', MX: 'Mexico', AE: 'UAE', SA: 'Saudi Arabia', TR: 'Turkey', PL: 'Poland',
-  SG: 'Singapore', ID: 'Indonesia', TH: 'Thailand', VN: 'Vietnam',
+  US: 'United States', CA: 'Canada', MX: 'Mexico', BR: 'Brazil', AR: 'Argentina', CL: 'Chile', CO: 'Colombia', PE: 'Peru', EC: 'Ecuador', VE: 'Venezuela', UY: 'Uruguay', PY: 'Paraguay', BO: 'Bolivia',
+  UK: 'United Kingdom', IE: 'Ireland', FR: 'France', DE: 'Germany', NL: 'Netherlands', BE: 'Belgium', AT: 'Austria', CH: 'Switzerland', IT: 'Italy', ES: 'Spain', PT: 'Portugal', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', IS: 'Iceland',
+  PL: 'Poland', CZ: 'Czech Republic', SK: 'Slovakia', HU: 'Hungary', RO: 'Romania', BG: 'Bulgaria', GR: 'Greece', HR: 'Croatia', RS: 'Serbia', UA: 'Ukraine', RU: 'Russia',
+  TR: 'Turkey', AE: 'UAE', SA: 'Saudi Arabia', QA: 'Qatar', KW: 'Kuwait', IL: 'Israel', JO: 'Jordan', EG: 'Egypt',
+  CN: 'China', TW: 'Taiwan', HK: 'Hong Kong', MO: 'Macau', JP: 'Japan', KR: 'South Korea', IN: 'India', TH: 'Thailand', VN: 'Vietnam', SG: 'Singapore', MY: 'Malaysia', ID: 'Indonesia', PH: 'Philippines', AU: 'Australia', NZ: 'New Zealand', ZA: 'South Africa',
 }
 
 const GOOGLE_NEWS_SEARCH_BASE = 'https://news.google.com/rss/search?q='
@@ -81,7 +86,7 @@ const RSS_FEEDS = [
   { url: 'https://www.chinanews.com.cn/rss/stock.xml', source: '中国新闻网', region: 'CN' },
   { url: 'https://feedx.net/rss/caixin.xml', source: '财新网', region: 'CN' },
   { url: 'https://news.stockstar.com/rss/xml.aspx?file=xml%2Ffocus%2F3393.xml', source: '证券之星', region: 'CN' },
-  { url: 'http://www.nbd.com.cn/rss/toutiao/articles/1483884.html', source: '每日经济新闻', region: 'CN' },
+  { url: 'https://www.nbd.com.cn/rss/toutiao/articles/1483884.html', source: '每日经济新闻', region: 'CN' },
   // === 地区情报：各国「与该国相关」的新闻（Google News 按国家名搜索）；US/UK/CN/SG 已有多源，其余国家加搜索 ===
   ...REGIONS.filter((r) => !['US', 'UK', 'CN', 'SG'].includes(r) && REGION_SEARCH_QUERY[r]).map((region) => ({
     url: GOOGLE_NEWS_SEARCH_BASE + encodeURIComponent(REGION_SEARCH_QUERY[region]) + GOOGLE_NEWS_SEARCH_SUFFIX,
@@ -346,14 +351,18 @@ export function getRegionCounts() {
 }
 
 const SPOT_NAMES = {
-  US: '美国', UK: '英国', CN: '中国', CA: '加拿大', DE: '德国', FR: '法国', IT: '意大利', ES: '西班牙', NL: '荷兰', RU: '俄罗斯',
-  JP: '日本', KR: '韩国', IN: '印度', AU: '澳大利亚', BR: '巴西', MX: '墨西哥', AE: '阿联酋', SA: '沙特', TR: '土耳其', PL: '波兰',
-  SG: '新加坡', ID: '印尼', TH: '泰国', VN: '越南',
+  US: '美国', CA: '加拿大', MX: '墨西哥', BR: '巴西', AR: '阿根廷', CL: '智利', CO: '哥伦比亚', PE: '秘鲁', EC: '厄瓜多尔', VE: '委内瑞拉', UY: '乌拉圭', PY: '巴拉圭', BO: '玻利维亚',
+  UK: '英国', IE: '爱尔兰', FR: '法国', DE: '德国', NL: '荷兰', BE: '比利时', AT: '奥地利', CH: '瑞士', IT: '意大利', ES: '西班牙', PT: '葡萄牙', SE: '瑞典', NO: '挪威', DK: '丹麦', FI: '芬兰', IS: '冰岛',
+  PL: '波兰', CZ: '捷克', SK: '斯洛伐克', HU: '匈牙利', RO: '罗马尼亚', BG: '保加利亚', GR: '希腊', HR: '克罗地亚', RS: '塞尔维亚', UA: '乌克兰', RU: '俄罗斯',
+  TR: '土耳其', AE: '阿联酋', SA: '沙特', QA: '卡塔尔', KW: '科威特', IL: '以色列', JO: '约旦', EG: '埃及',
+  CN: '中国', TW: '台湾', HK: '香港', MO: '澳门', JP: '日本', KR: '韩国', IN: '印度', TH: '泰国', VN: '越南', SG: '新加坡', MY: '马来西亚', ID: '印尼', PH: '菲律宾', AU: '澳大利亚', NZ: '新西兰', ZA: '南非',
 }
 const SPOT_COORDS = {
-  US: [40.7, -74], UK: [51.5, -0.1], CN: [31.2, 121.5], CA: [43.65, -79.38], DE: [52.52, 13.4], FR: [48.86, 2.35], IT: [41.9, 12.5], ES: [40.42, -3.7], NL: [52.37, 4.89], RU: [55.75, 37.62],
-  JP: [35.7, 139.7], KR: [37.57, 126.98], IN: [19.08, 72.88], AU: [-33.87, 151.21], BR: [-23.55, -46.63], MX: [19.43, -99.13], AE: [25.2, 55.3], SA: [24.71, 46.68], TR: [39.93, 32.85], PL: [52.23, 21.01],
-  SG: [1.35, 103.8], ID: [-6.2, 106.82], TH: [13.75, 100.5], VN: [21.03, 105.85],
+  US: [40.7, -74], CA: [43.65, -79.38], MX: [19.43, -99.13], BR: [-23.55, -46.63], AR: [-34.6, -58.38], CL: [-33.45, -70.67], CO: [4.71, -74.07], PE: [-12.05, -77.05], EC: [-0.22, -78.51], VE: [10.48, -66.9], UY: [-34.9, -56.16], PY: [-25.3, -57.58], BO: [-16.5, -68.15],
+  UK: [51.5, -0.1], IE: [53.35, -6.26], FR: [48.86, 2.35], DE: [52.52, 13.4], NL: [52.37, 4.89], BE: [50.85, 4.35], AT: [48.21, 16.37], CH: [46.95, 7.45], IT: [41.9, 12.5], ES: [40.42, -3.7], PT: [38.72, -9.13], SE: [59.33, 18.07], NO: [59.91, 10.75], DK: [55.68, 12.57], FI: [60.17, 24.94], IS: [64.15, -21.95],
+  PL: [52.23, 21.01], CZ: [50.08, 14.43], SK: [48.15, 17.11], HU: [47.5, 19.08], RO: [44.43, 26.1], BG: [42.7, 23.32], GR: [37.98, 23.73], HR: [45.81, 15.98], RS: [44.82, 20.46], UA: [50.45, 30.52], RU: [55.75, 37.62],
+  TR: [39.93, 32.85], AE: [25.2, 55.3], SA: [24.71, 46.68], QA: [25.29, 51.53], KW: [29.38, 47.99], IL: [32.09, 34.78], JO: [31.95, 35.93], EG: [30.04, 31.24],
+  CN: [31.2, 121.5], TW: [25.03, 121.56], HK: [22.28, 114.16], MO: [22.2, 113.55], JP: [35.7, 139.7], KR: [37.57, 126.98], IN: [19.08, 72.88], TH: [13.75, 100.5], VN: [21.03, 105.85], SG: [1.35, 103.8], MY: [3.14, 101.69], ID: [-6.2, 106.82], PH: [14.6, 120.98], AU: [-33.87, 151.21], NZ: [-36.85, 174.76], ZA: [-33.92, 18.42],
 }
 
 export async function getMapSpots() {
@@ -368,7 +377,7 @@ export async function getMapSpots() {
   }))
 }
 
-/** A 股资讯：仅展示国内证券/财经/经济门户（与 DOMESTIC_SOURCES 一致；证券时报/上海证券报/中证网/和讯/东方财富/证监会/中金/新华网/中国财经等暂无稳定公开 RSS，有再补） */
+/** A 股资讯：仅展示国内证券/财经/经济门户。新浪/财新/证券之星/每日经济新闻等源可能因网络或反爬不可达，中国新闻网通常最稳定；可配置 HTTPS_PROXY 后重启尝试。 */
 const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻']
 const A_SHARE_SOURCE_ORDER = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻']
 
