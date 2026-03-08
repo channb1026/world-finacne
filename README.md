@@ -2,6 +2,8 @@
 
 **Repository:** [https://github.com/channb1026/world-finacne](https://github.com/channb1026/world-finacne)
 
+![全球金融财经作战图界面截图](screenshot.png)
+
 作战室风格仪表盘：一屏展示关键汇率、热点新闻、全球股市与市场状态；中央为全球地图与闪烁亮点，点击亮点可下钻该地区政经要闻。底部为时间轴（UTC/北京时）、经济日历及**数据刷新说明**（行情约 3 秒、新闻/快讯约 45 秒）。
 
 ## 运行方式

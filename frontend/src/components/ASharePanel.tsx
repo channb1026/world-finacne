@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-// 中国 A 股：指数每 3 秒轮询（与全球股市一致），资讯每 45 秒轮询
 import { fetchAShareIndices, fetchAShareNews, POLL_INTERVAL_MARKET, POLL_INTERVAL_NEWS } from '../services/api'
 import type { AShareIndex, AShareNewsItem } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
+import { getAShareIndexDisplayName } from '../i18n/displayNames'
 
-function formatLastUpdated(date: Date): string {
-  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
+  const tag = locale === 'en' ? 'en-US' : 'zh-CN'
+  return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 export function ASharePanel() {
+  const { locale, t } = useLocale()
   const [indices, setIndices] = useState<AShareIndex[]>([])
   const [news, setNews] = useState<AShareNewsItem[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -71,22 +74,22 @@ export function ASharePanel() {
   return (
     <div className="panel panel--fill a-share-panel">
       <div className="panel__title">
-        中国 A 股
-        {lastUpdated && <span className="panel__updated">更新 {formatLastUpdated(lastUpdated)}</span>}
+        {t('panel.aShare')}
+        {lastUpdated && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>}
       </div>
       <div className={`a-share-panel__indices ${flashIndices ? 'data-updated-flash' : ''}`}>
-        <div className="a-share-panel__subtitle">主要指数</div>
+        <div className="a-share-panel__subtitle">{t('panel.mainIndices')}</div>
         {indices.length === 0 ? (
           <div className="panel__state a-share-row">
-            <span>{!loadedOnce ? '加载中…' : error ? '加载失败' : '暂无数据'}</span>
+            <span>{!loadedOnce ? t('common.loading') : error ? t('common.loadFailed') : t('common.noData')}</span>
             {loadedOnce && (
-              <button type="button" className="panel__retry" onClick={loadMarket}>重试</button>
+              <button type="button" className="panel__retry" onClick={loadMarket}>{t('common.retry')}</button>
             )}
           </div>
         ) : (
           indices.map((idx) => (
             <div key={idx.symbol} className="a-share-row">
-              <span className="a-share-row__name">{idx.name}</span>
+              <span className="a-share-row__name">{getAShareIndexDisplayName(idx.name, idx.symbol, locale)}</span>
               <span className="a-share-row__value">{idx.value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
               <span className={`a-share-row__chg ${idx.changePct >= 0 ? 'up' : 'down'}`}>
                 {idx.change >= 0 ? '+' : ''}{idx.change.toFixed(2)} ({idx.changePct >= 0 ? '+' : ''}{idx.changePct.toFixed(2)}%)
@@ -96,12 +99,12 @@ export function ASharePanel() {
         )}
       </div>
       <div className={`a-share-panel__news ${flashNews ? 'data-updated-flash' : ''}`}>
-        <div className="a-share-panel__subtitle">A 股资讯</div>
+        <div className="a-share-panel__subtitle">{t('panel.aShareNews')}</div>
         <ul className="a-share-news-list">
           {news.length === 0 ? (
             <li className="a-share-news-item">
-              <span>{newsError ? '加载失败' : '暂无 A 股资讯（部分 RSS 可能无法连接）'}</span>
-              <button type="button" className="panel__retry" onClick={loadNews}>重试</button>
+              <span>{newsError ? t('common.loadFailed') : t('aShare.noNews')}</span>
+              <button type="button" className="panel__retry" onClick={loadNews}>{t('common.retry')}</button>
             </li>
           ) : (
             news.map((n) => {

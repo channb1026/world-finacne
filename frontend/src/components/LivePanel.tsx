@@ -1,10 +1,12 @@
 import { LIVE_SLOTS } from '../data/liveSlots'
+import { useLocale } from '../i18n/LocaleContext'
 
 /** 直播位统一为「新窗口打开」卡片，避免嵌入显示 Video unavailable */
 export function LivePanel() {
+  const { t } = useLocale()
   return (
     <div className="panel live-panel">
-      <div className="panel__title">频道直播</div>
+      <div className="panel__title">{t('panel.live')}</div>
       <div className="live-panel__slots">
         {LIVE_SLOTS.map((slot) => (
           <div key={slot.id} className="live-slot">
@@ -16,7 +18,7 @@ export function LivePanel() {
                 rel="noopener noreferrer"
                 className="live-slot__open"
               >
-                新窗口打开
+                {t('panel.openInNewWindow')}
               </a>
             </div>
             <a
@@ -26,7 +28,7 @@ export function LivePanel() {
               className="live-slot__link-card"
             >
               <span className="live-slot__link-icon">▶</span>
-              <span className="live-slot__link-label">点击在新窗口观看直播</span>
+              <span className="live-slot__link-label">{t('panel.clickToWatch')}</span>
               <span className="live-slot__link-url">{slot.pageUrl.replace(/^https?:\/\//, '')}</span>
             </a>
           </div>

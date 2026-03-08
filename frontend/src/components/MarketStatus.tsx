@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocale } from '../i18n/LocaleContext'
 
 /** 根据当前 UTC 小时简化为三地开市状态（仅作展示） */
 function useMarketStatus() {
@@ -7,7 +8,6 @@ function useMarketStatus() {
   useEffect(() => {
     const update = () => {
       const utcHour = new Date().getUTCHours()
-      // 亚太约 0–8 UTC 活跃，欧洲约 7–16，美洲约 13–21
       setStatus({
         asia: utcHour >= 0 && utcHour < 9,
         europe: utcHour >= 7 && utcHour < 17,
@@ -23,26 +23,27 @@ function useMarketStatus() {
 }
 
 export function MarketStatus() {
+  const { t } = useLocale()
   const { asia, europe, americas } = useMarketStatus()
 
   return (
     <div className="panel market-status">
-      <div className="panel__title">市场状态</div>
+      <div className="panel__title">{t('panel.marketStatus')}</div>
       <div className="market-status__list">
         <div className="market-status__row">
-          <span className="market-status__name">亚太</span>
+          <span className="market-status__name">{t('marketStatus.asia')}</span>
           <span className={`market-status__dot ${asia ? 'open' : 'closed'}`} />
-          <span className="market-status__label">{asia ? '开市' : '休市'}</span>
+          <span className="market-status__label">{asia ? t('marketStatus.open') : t('marketStatus.closed')}</span>
         </div>
         <div className="market-status__row">
-          <span className="market-status__name">欧洲</span>
+          <span className="market-status__name">{t('marketStatus.europe')}</span>
           <span className={`market-status__dot ${europe ? 'open' : 'closed'}`} />
-          <span className="market-status__label">{europe ? '开市' : '休市'}</span>
+          <span className="market-status__label">{europe ? t('marketStatus.open') : t('marketStatus.closed')}</span>
         </div>
         <div className="market-status__row">
-          <span className="market-status__name">美洲</span>
+          <span className="market-status__name">{t('marketStatus.americas')}</span>
           <span className={`market-status__dot ${americas ? 'open' : 'closed'}`} />
-          <span className="market-status__label">{americas ? '开市' : '休市'}</span>
+          <span className="market-status__label">{americas ? t('marketStatus.open') : t('marketStatus.closed')}</span>
         </div>
       </div>
     </div>

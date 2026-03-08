@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { getTimezoneMode, setTimezoneMode, subscribeTimezone, formatTime } from '../stores/timezoneStore'
 import { fetchCalendar, POLL_INTERVAL_NEWS } from '../services/api'
 import type { CalendarEvent } from '../services/api'
+import { useLocale } from '../i18n/LocaleContext'
+import type { Locale } from '../i18n/translations'
 
 function hasMapViewInUrl(): boolean {
   const p = new URLSearchParams(window.location.search)
@@ -9,6 +11,7 @@ function hasMapViewInUrl(): boolean {
 }
 
 export function BottomBar() {
+  const { locale, setLocale, t } = useLocale()
   const [now, setNow] = useState(new Date())
   const [tz, setTz] = useState(getTimezoneMode())
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -48,15 +51,20 @@ export function BottomBar() {
   return (
     <div className="bottom-bar">
       <div className="bottom-bar__time">
-        <span className="bottom-bar__clock">{formatTime(now, tz)}</span>
+        <span className="bottom-bar__clock">{formatTime(now, tz, locale)}</span>
         <button
           type="button"
           className="bottom-bar__tz-toggle"
           onClick={() => setTimezoneMode(tz === 'UTC' ? 'Asia/Shanghai' : 'UTC')}
         >
-          {tz === 'UTC' ? '切至北京' : '切至 UTC'}
+          {tz === 'UTC' ? t('bottomBar.switchToBeijing') : t('bottomBar.switchToUtc')}
         </button>
-        <span className="bottom-bar__refresh" title="数据轮询间隔">行情 3s · 新闻/快讯/日历 45s</span>
+        <span className="bottom-bar__refresh" title={locale === 'zh' ? '数据轮询间隔' : 'Poll interval'}>{t('bottomBar.refreshHint')}</span>
+        <span className="bottom-bar__lang">
+          <button type="button" className={locale === 'zh' ? 'bottom-bar__lang-btn is-active' : 'bottom-bar__lang-btn'} onClick={() => setLocale('zh' as Locale)}>{t('locale.zh')}</button>
+          <span className="bottom-bar__lang-sep">/</span>
+          <button type="button" className={locale === 'en' ? 'bottom-bar__lang-btn is-active' : 'bottom-bar__lang-btn'} onClick={() => setLocale('en' as Locale)}>{t('locale.en')}</button>
+        </span>
         {showCopyLink && (
           <button
             type="button"
@@ -68,14 +76,14 @@ export function BottomBar() {
               })
             }}
           >
-            {copied ? '已复制' : '复制视角链接'}
+            {copied ? t('bottomBar.copied') : t('bottomBar.copyViewLink')}
           </button>
         )}
       </div>
       <div className="bottom-bar__calendar">
-        <span className="bottom-bar__label" title="经济日历数据接入中">即将到来</span>
+        <span className="bottom-bar__label" title={locale === 'zh' ? '经济日历数据接入中' : 'Economic calendar'}>{t('bottomBar.comingUp')}</span>
         {events.length === 0 ? (
-          <span className="bottom-bar__event bottom-bar__event--muted">经济日历（数据接入中，暂无事件）</span>
+          <span className="bottom-bar__event bottom-bar__event--muted">{t('bottomBar.calendarPlaceholder')}</span>
         ) : (
           events.map((e, i) => (
             <span key={i} className="bottom-bar__event">

@@ -11,20 +11,22 @@ import L from 'leaflet'
 import type { MapSpot } from '../data/mock'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
 import { fetchMapSpots, POLL_INTERVAL_NEWS } from '../services/api'
+import { useLocale } from '../i18n/LocaleContext'
+import { getRegionDisplayName } from '../i18n/displayNames'
 import 'leaflet/dist/leaflet.css'
 
 /** 深色底图：Stadia Alidade Smooth Dark；仅请求合法瓦片坐标，避免 404 */
 const DARK_TILE = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png'
 
-/** 区域预设：中心 [lat, lng]、缩放 */
+/** 区域预设：中心 [lat, lng]、缩放；label 由 i18n 按 id 取 map.preset.{id} */
 const MAP_PRESETS = [
-  { id: 'world', label: '全球', center: [25, 20] as [number, number], zoom: 3 },
-  { id: 'americas', label: '美洲', center: [20, -100] as [number, number], zoom: 3 },
-  { id: 'europe', label: '欧洲', center: [52, 10] as [number, number], zoom: 4 },
-  { id: 'asia', label: '亚太', center: [25, 105] as [number, number], zoom: 4 },
-  { id: 'china', label: '中国', center: [35, 105] as [number, number], zoom: 4 },
-  { id: 'mena', label: '中东', center: [26, 45] as [number, number], zoom: 4 },
-  { id: 'africa', label: '非洲', center: [0, 22] as [number, number], zoom: 3 },
+  { id: 'world', center: [25, 20] as [number, number], zoom: 3 },
+  { id: 'americas', center: [20, -100] as [number, number], zoom: 3 },
+  { id: 'europe', center: [52, 10] as [number, number], zoom: 4 },
+  { id: 'asia', center: [25, 105] as [number, number], zoom: 4 },
+  { id: 'china', center: [35, 105] as [number, number], zoom: 4 },
+  { id: 'mena', center: [26, 45] as [number, number], zoom: 4 },
+  { id: 'africa', center: [0, 22] as [number, number], zoom: 3 },
 ]
 
 function getViewFromUrl(): { center: [number, number]; zoom: number } {
@@ -73,11 +75,11 @@ const BoundedTileLayer = L.TileLayer.extend({
   },
 }) as new (url: string, options?: L.TileLayerOptions) => L.TileLayer
 
-function createSpotIcon(spot: MapSpot, selected: boolean) {
-  const title = `${spot.name} · ${spot.count} 条情报（点击查看）`
+function createSpotIcon(spot: MapSpot, selected: boolean, spotHint: string, displayName: string) {
+  const title = `${displayName} · ${spot.count}${spotHint}`
   return L.divIcon({
     className: 'spot-marker',
-    html: `<div class="spot-pulse ${selected ? 'selected' : ''}" title="${title}"></div>`,
+    html: `<div class="spot-pulse ${selected ? 'selected' : ''}" title="${title.replace(/"/g, '&quot;')}"></div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   })
@@ -87,10 +89,14 @@ function SpotMarkers({
   spots,
   selectedId,
   onSpotClick,
+  spotHint,
+  getSpotDisplayName,
 }: {
   spots: MapSpot[]
   selectedId: string | null
   onSpotClick: (id: MapSpot['id']) => void
+  spotHint: string
+  getSpotDisplayName: (spot: MapSpot) => string
 }) {
   const { showSpotsLayer } = useContext(MapLayerContext)
   if (!showSpotsLayer) return null
@@ -100,7 +106,7 @@ function SpotMarkers({
         <Marker
           key={spot.id}
           position={[spot.lat, spot.lng]}
-          icon={createSpotIcon(spot, selectedId === spot.id)}
+          icon={createSpotIcon(spot, selectedId === spot.id, spotHint, getSpotDisplayName(spot))}
           eventHandlers={{
             click: () => onSpotClick(spot.id),
           }}
@@ -111,10 +117,10 @@ function SpotMarkers({
 }
 
 /** 区域预设按钮条：置于地图上方，点击后 setView 并同步 URL */
-function MapPresetsBar() {
+function MapPresetsBar({ t }: { t: (key: string) => string }) {
   const map = useMap()
   return (
-    <div className="map-presets-bar" role="group" aria-label="地图区域预设">
+    <div className="map-presets-bar" role="group" aria-label={t('map.ariaPresets')}>
       {MAP_PRESETS.map((preset) => (
         <button
           key={preset.id}
@@ -125,7 +131,7 @@ function MapPresetsBar() {
             updateUrl(L.latLng(preset.center[0], preset.center[1]), preset.zoom)
           }}
         >
-          {preset.label}
+          {t(`map.preset.${preset.id}`)}
         </button>
       ))}
     </div>
@@ -138,26 +144,28 @@ function MapUrlSync() {
   useEffect(() => {
     const onMoveEnd = () => updateUrl(map.getCenter(), map.getZoom())
     map.on('moveend', onMoveEnd)
-    return () => map.off('moveend', onMoveEnd)
+    return () => {
+      map.off('moveend', onMoveEnd)
+    }
   }, [map])
   return null
 }
 
 /** 图例与图层开关：说明当前图层含义，可勾选显示/隐藏新闻亮点 */
-function MapLegend() {
+function MapLegend({ t }: { t: (key: string) => string }) {
   const { showSpotsLayer, setShowSpotsLayer } = useContext(MapLayerContext)
   return (
-    <div className="map-legend" role="group" aria-label="地图图例与图层">
+    <div className="map-legend" role="group" aria-label={t('map.ariaLegend')}>
       <span className="map-legend__dot" aria-hidden />
-      <span className="map-legend__text">亮点 = 该地区新闻条数</span>
+      <span className="map-legend__text">{t('map.legendSpots')}</span>
       <label className="map-legend__toggle">
         <input
           type="checkbox"
           checked={showSpotsLayer}
           onChange={(e) => setShowSpotsLayer(e.target.checked)}
-          aria-label="显示新闻亮点图层"
+          aria-label={t('map.ariaSpotsLayer')}
         />
-        <span>显示亮点</span>
+        <span>{t('map.showSpots')}</span>
       </label>
     </div>
   )
@@ -211,6 +219,7 @@ function getStoredShowSpotsLayer(): boolean {
 }
 
 export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
+  const { t, locale } = useLocale()
   const [spots, setSpots] = useState<MapSpot[]>(MAP_SPOTS_DEFAULT)
   const [showSpotsLayer, setShowSpotsLayerState] = useState(getStoredShowSpotsLayer)
   const initialView = useMemo(() => getViewFromUrl(), [])
@@ -225,8 +234,8 @@ export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
   useEffect(() => {
     const load = () => fetchMapSpots().then(setSpots).catch(() => setSpots(MAP_SPOTS_DEFAULT))
     load()
-    const t = setInterval(load, POLL_INTERVAL_NEWS)
-    return () => clearInterval(t)
+    const id = setInterval(load, POLL_INTERVAL_NEWS)
+    return () => clearInterval(id)
   }, [])
 
   const handleSpotClick = useCallback(
@@ -252,14 +261,16 @@ export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
         maxBoundsViscosity={1}
       >
         <BoundedTileLayerMount />
-        <MapPresetsBar />
-        <MapLegend />
+        <MapPresetsBar t={t} />
+        <MapLegend t={t} />
         <MapUrlSync />
         <MapResizeSync />
         <SpotMarkers
           spots={spots}
           selectedId={selectedRegionId}
           onSpotClick={handleSpotClick}
+          spotHint={t('map.spotHint')}
+          getSpotDisplayName={(spot) => getRegionDisplayName(spot.id, locale, spot.name)}
         />
       </MapContainer>
       </MapLayerContext.Provider>

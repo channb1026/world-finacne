@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchKeyMetrics, POLL_INTERVAL_MARKET } from '../services/api'
 import type { KeyMetric } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
+import { getKeyMetricDisplayName } from '../i18n/displayNames'
 
-function formatLastUpdated(date: Date): string {
-  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
+  const tag = locale === 'en' ? 'en-US' : 'zh-CN'
+  return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 export function KeyMetricsBar() {
+  const { locale, t } = useLocale()
   const [metrics, setMetrics] = useState<KeyMetric[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState(false)
@@ -43,12 +47,12 @@ export function KeyMetricsBar() {
   }, [])
 
   if (metrics.length === 0) {
-    const msg = !loadedOnce ? '加载中…' : error ? '加载失败' : '暂无数据'
+    const msg = !loadedOnce ? t('common.loading') : error ? t('common.loadFailed') : t('common.noData')
     return (
       <div className="key-metrics-bar">
         <span>{msg}</span>
         {loadedOnce && (
-          <button type="button" className="panel__retry" onClick={load}>重试</button>
+          <button type="button" className="panel__retry" onClick={load}>{t('common.retry')}</button>
         )}
       </div>
     )
@@ -57,11 +61,11 @@ export function KeyMetricsBar() {
   return (
     <div className={`key-metrics-bar ${flash ? 'data-updated-flash' : ''}`}>
       {lastUpdated && (
-        <span className="key-metrics-bar__updated">更新 {formatLastUpdated(lastUpdated)}</span>
+        <span className="key-metrics-bar__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>
       )}
       {metrics.map((m) => (
         <div key={m.name} className="key-metrics-bar__item">
-          <span className="key-metrics-bar__name">{m.name}</span>
+          <span className="key-metrics-bar__name">{getKeyMetricDisplayName(m.name, locale)}</span>
           <span className="key-metrics-bar__value">{m.value}</span>
           <span className={`key-metrics-bar__chg ${m.changePct >= 0 ? 'up' : 'down'}`}>
             {m.changePct >= 0 ? '+' : ''}{m.changePct}%

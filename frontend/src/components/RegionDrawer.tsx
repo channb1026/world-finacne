@@ -3,6 +3,8 @@ import type { RegionId } from '../data/mock'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
 import { fetchNewsByRegion, POLL_INTERVAL_NEWS } from '../services/api'
 import type { NewsItem } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
+import { getRegionDisplayName } from '../i18n/displayNames'
 
 interface RegionDrawerProps {
   regionId: RegionId | null
@@ -10,6 +12,7 @@ interface RegionDrawerProps {
 }
 
 export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
+  const { t, locale } = useLocale()
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
@@ -33,19 +36,20 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
   if (!regionId) return null
   const region = MAP_SPOTS_DEFAULT.find((s) => s.id === regionId)
 
+  const regionDisplayName = getRegionDisplayName(regionId, locale, region?.name)
   return (
     <div className="region-drawer">
       <div className="region-drawer__head">
-        <span className="region-drawer__title">{region?.name ?? regionId} · 地区情报</span>
-        <button type="button" className="region-drawer__close" onClick={onClose} aria-label="关闭">
+        <span className="region-drawer__title">{regionDisplayName} · {t('regionDrawer.intel')}</span>
+        <button type="button" className="region-drawer__close" onClick={onClose} aria-label={t('common.close')}>
           ×
         </button>
       </div>
       <div className="region-drawer__body">
-        <div className="panel__title">该地区资讯</div>
+        <div className="panel__title">{t('regionDrawer.regionNews')}</div>
         <div className="region-news">
           {loading ? (
-            <div className="news-item">加载中…</div>
+            <div className="news-item">{t('common.loading')}</div>
           ) : news.length ? (
             news.map((n) => {
               const href = n.link && n.link.startsWith('http') ? n.link : undefined
@@ -69,7 +73,7 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
             })
           ) : (
             <div className="news-item">
-              <div className="news-item__title">暂无该地区最新情报</div>
+              <div className="news-item__title">{t('regionDrawer.noRegionNews')}</div>
               <div className="news-item__meta">—</div>
             </div>
           )}

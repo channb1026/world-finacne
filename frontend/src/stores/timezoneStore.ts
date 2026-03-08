@@ -22,10 +22,13 @@ export function subscribeTimezone(fn: () => void): () => void {
   return () => listeners.delete(fn)
 }
 
-export function formatTime(date: Date, tz: TimezoneMode): string {
+/** locale 用于界面语言：en 时显示 "Beijing"，否则 "北京" */
+export function formatTime(date: Date, tz: TimezoneMode, locale: 'zh' | 'en' = 'zh'): string {
   if (tz === 'UTC') {
     return date.toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
   }
-  const s = date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
-  return s + ' 北京'
+  const localeTag = locale === 'en' ? 'en-US' : 'zh-CN'
+  const s = date.toLocaleString(localeTag, { timeZone: 'Asia/Shanghai', hour12: false })
+  const suffix = locale === 'en' ? ' Beijing' : ' 北京'
+  return s + suffix
 }

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchRatesPanel, POLL_INTERVAL_MARKET } from '../services/api'
 import type { RateItem } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
+import { getRateDisplayName } from '../i18n/displayNames'
 
 export function RatesPanel() {
+  const { t, locale } = useLocale()
   const [rates, setRates] = useState<RateItem[]>([])
   const [error, setError] = useState(false)
   const [loadedOnce, setLoadedOnce] = useState(false)
@@ -36,19 +39,19 @@ export function RatesPanel() {
 
   return (
     <div className="panel panel--min-height">
-      <div className="panel__title">利率 · 波动率</div>
+      <div className="panel__title">{t('panel.rates')}</div>
       {rates.length === 0 ? (
         <div className="panel__state">
-          <span>{!loadedOnce ? '加载中…' : error ? '加载失败' : '暂无数据'}</span>
+          <span>{!loadedOnce ? t('common.loading') : error ? t('common.loadFailed') : t('common.noData')}</span>
           {loadedOnce && (
-            <button type="button" className="panel__retry" onClick={load}>重试</button>
+            <button type="button" className="panel__retry" onClick={load}>{t('common.retry')}</button>
           )}
         </div>
       ) : (
         <div className={flash ? 'data-updated-flash' : ''}>
           {rates.map((r) => (
           <div key={r.name} className="rate-row">
-            <span className="rate-row__name">{r.name}</span>
+            <span className="rate-row__name">{getRateDisplayName(r.name, locale)}</span>
             <span className="rate-row__value">{r.value}</span>
             <span className={`rate-row__chg ${r.changePct >= 0 ? 'up' : 'down'}`}>
               {r.changePct >= 0 ? '+' : ''}{r.changePct}%

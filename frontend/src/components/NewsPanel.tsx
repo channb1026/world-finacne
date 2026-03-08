@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchNews, POLL_INTERVAL_NEWS } from '../services/api'
 import type { NewsItem } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
 
-function formatLastUpdated(date: Date): string {
-  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
+  const tag = locale === 'en' ? 'en-US' : 'zh-CN'
+  return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 export function NewsPanel() {
+  const { locale, t } = useLocale()
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -46,14 +49,14 @@ export function NewsPanel() {
   return (
     <div className="panel panel--fill">
       <div className="panel__title">
-        热点财经
-        {lastUpdated && <span className="panel__updated">更新 {formatLastUpdated(lastUpdated)}</span>}
+        {t('panel.news')}
+        {lastUpdated && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>}
       </div>
       <div className={`news-list ${flash ? 'data-updated-flash' : ''}`}>
         {loading && news.length === 0 ? (
-          <div className="news-item">加载中…</div>
+          <div className="news-item">{t('common.loading')}</div>
         ) : error && news.length === 0 ? (
-          <div className="news-item">加载失败</div>
+          <div className="news-item">{t('common.loadFailed')}</div>
         ) : (
           news.map((n) => (
             <div key={n.id} className="news-item">

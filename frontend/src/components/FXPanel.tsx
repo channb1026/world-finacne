@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchRates, POLL_INTERVAL_MARKET } from '../services/api'
 import type { FxPair } from '../data/mock'
+import { useLocale } from '../i18n/LocaleContext'
 
-function formatLastUpdated(date: Date): string {
-  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
+  const tag = locale === 'en' ? 'en-US' : 'zh-CN'
+  return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 export function FXPanel() {
+  const { locale, t } = useLocale()
   const [rates, setRates] = useState<FxPair[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState(false)
@@ -43,14 +46,14 @@ export function FXPanel() {
   }, [])
 
   if (rates.length === 0) {
-    const msg = !loadedOnce ? '加载中…' : error ? '加载失败' : '暂无数据'
+    const msg = !loadedOnce ? t('common.loading') : error ? t('common.loadFailed') : t('common.noData')
     return (
       <div className="panel panel--min-height">
-        <div className="panel__title">关键汇率 · 对人民币</div>
+        <div className="panel__title">{t('panel.fx')}</div>
         <div className="panel__state">
           <span>{msg}</span>
           {loadedOnce && (
-            <button type="button" className="panel__retry" onClick={load}>重试</button>
+            <button type="button" className="panel__retry" onClick={load}>{t('common.retry')}</button>
           )}
         </div>
       </div>
@@ -60,10 +63,10 @@ export function FXPanel() {
   return (
     <div className="panel">
       <div className="panel__title">
-        关键汇率 · 对人民币
-        {lastUpdated && <span className="panel__updated">更新 {formatLastUpdated(lastUpdated)}</span>}
+        {t('panel.fx')}
+        {lastUpdated && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>}
       </div>
-      <div className="panel__subtitle">主要汇率</div>
+      <div className="panel__subtitle">{t('panel.mainRates')}</div>
       <div className={flash ? 'data-updated-flash' : ''}>
       {rates.map((fx) => (
         <div key={fx.pair} className="fx-row">
