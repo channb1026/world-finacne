@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchNews, POLL_INTERVAL_NEWS } from '../services/api'
 import type { NewsItem } from '../data/mock'
 import { useLocale } from '../i18n/LocaleContext'
+import { getNewsSourceDisplay } from '../i18n/displayNames'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
@@ -67,7 +68,7 @@ export function NewsPanel() {
                   n.title
                 )}
               </div>
-              <div className="news-item__meta">{n.source} · {n.time}</div>
+              <div className="news-item__meta">{getNewsSourceDisplay(n.source, locale)} · {n.time}</div>
             </div>
           ))
         )}

@@ -320,23 +320,18 @@ async function refreshCache() {
   }
 }
 
+/** 热点财经：返回原文来源，由前端按界面语言展示中文/英文 */
 export async function getHotNews() {
   if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
-  return cache.hot.map((item) => ({
-    ...item,
-    source: SOURCE_ZH[item.source] ?? item.source,
-  }))
+  return cache.hot.map((item) => ({ ...item }))
 }
 
-/** 地区情报：返回与该国相关的资讯；为求打开速度不做标题翻译，直接返回原文（来源仍用 SOURCE_ZH） */
+/** 地区情报：返回与该国相关的资讯；来源由前端按界面语言展示 */
 export async function getNewsByRegion(region) {
   if (!REGIONS.includes(region)) return []
   if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
   const raw = (cache.byRegion[region] || []).slice(0, REGION_ITEMS_MAX)
-  return raw.map((item) => ({
-    ...item,
-    source: SOURCE_ZH[item.source] ?? item.source,
-  }))
+  return raw.map((item) => ({ ...item }))
 }
 
 export async function getAllNewsForMap() {
@@ -411,13 +406,7 @@ export async function getAShareNews() {
     if (added === 0) break
   }
   aShare.sort((a, b) => (b.pubDateMs - a.pubDateMs))
-  const toItem = (n) => ({
-    id: n.id,
-    title: n.title,
-    source: SOURCE_ZH[n.source] ?? n.source,
-    time: n.time,
-    link: n.link,
-  })
+  const toItem = (n) => ({ id: n.id, title: n.title, source: n.source, time: n.time, link: n.link })
   return aShare.slice(0, A_SHARE_TARGET).map(toItem)
 }
 

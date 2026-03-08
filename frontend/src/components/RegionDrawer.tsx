@@ -4,7 +4,7 @@ import { MAP_SPOTS_DEFAULT } from '../data/mock'
 import { fetchNewsByRegion, POLL_INTERVAL_NEWS } from '../services/api'
 import type { NewsItem } from '../data/mock'
 import { useLocale } from '../i18n/LocaleContext'
-import { getRegionDisplayName } from '../i18n/displayNames'
+import { getRegionDisplayName, getNewsSourceDisplay } from '../i18n/displayNames'
 
 interface RegionDrawerProps {
   regionId: RegionId | null
@@ -67,7 +67,7 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
                       <span className="news-item__tag" data-category={n.category}>{n.category}</span>
                     )}
                   </div>
-                  <div className="news-item__meta">{n.source} · {n.time}</div>
+                  <div className="news-item__meta">{getNewsSourceDisplay(n.source, locale)} · {n.time}</div>
                 </div>
               )
             })

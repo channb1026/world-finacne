@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchAShareIndices, fetchAShareNews, POLL_INTERVAL_MARKET, POLL_INTERVAL_NEWS } from '../services/api'
 import type { AShareIndex, AShareNewsItem } from '../data/mock'
 import { useLocale } from '../i18n/LocaleContext'
-import { getAShareIndexDisplayName } from '../i18n/displayNames'
+import { getAShareIndexDisplayName, getNewsSourceDisplay } from '../i18n/displayNames'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
@@ -118,7 +118,7 @@ export function ASharePanel() {
                   ) : (
                     <span className="a-share-news-item__title">{n.title}</span>
                   )}
-                  <span className="a-share-news-item__meta">{n.source} · {n.time}</span>
+                  <span className="a-share-news-item__meta">{getNewsSourceDisplay(n.source, locale)} · {n.time}</span>
                 </li>
               )
             })

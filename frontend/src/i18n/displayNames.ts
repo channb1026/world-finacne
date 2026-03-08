@@ -16,10 +16,10 @@ const KEY_METRIC_NAME_EN: Record<string, string> = {
   '10Y美债': '10Y Treasury',
 }
 
-/** 全球股指：按 symbol 映射英文名 */
+/** 全球股指：按 symbol 映射英文名（上证/深证用缩写避免两行换行） */
 const STOCK_SYMBOL_EN: Record<string, string> = {
-  '000001.SS': 'Shanghai Composite',
-  '399001.SZ': 'Shenzhen Component',
+  '000001.SS': 'SSE Comp.',
+  '399001.SZ': 'SZSE Comp.',
   '^HSI': 'Hang Seng',
   '^DJI': 'Dow Jones',
   '^IXIC': 'Nasdaq',
@@ -44,10 +44,10 @@ const COMMODITY_UNIT_EN: Record<string, string> = {
   '美元/盎司': '$/oz',
 }
 
-/** A 股指数：按 symbol 映射英文名 */
+/** A 股指数：按 symbol 映射英文名（上证/深证用缩写避免两行换行） */
 const A_SHARE_SYMBOL_EN: Record<string, string> = {
-  '000001.SS': 'Shanghai Composite',
-  '399001.SZ': 'Shenzhen Component',
+  '000001.SS': 'SSE Comp.',
+  '399001.SZ': 'SZSE Comp.',
   '000300.SS': 'CSI 300',
   '399006.SZ': 'ChiNext',
   '000688.SS': 'STAR 50',
@@ -112,4 +112,44 @@ export function getRateDisplayName(name: string, locale: Locale): string {
 export function getRegionDisplayName(regionId: string, locale: Locale, fallbackName?: string): string {
   if (locale !== 'en') return fallbackName ?? regionId
   return REGION_ID_EN[regionId] ?? fallbackName ?? regionId
+}
+
+/** 新闻来源：后端返回原始来源名；中文界面显示中文名，英文界面显示英文/原名 */
+const SOURCE_ZH: Record<string, string> = {
+  'Google News': '谷歌新闻',
+  'Yahoo News': '雅虎新闻',
+  'Yahoo Finance': '雅虎财经',
+  'Guardian': '卫报',
+  'CNBC': 'CNBC',
+  'NPR': '美国国家公共电台',
+  'NPR Business': 'NPR 财经',
+  'CNN': 'CNN',
+  'WSJ': '华尔街日报',
+  'NYT': '纽约时报',
+  'MSNBC': 'MSNBC',
+  'BBC': 'BBC',
+  'Reuters': '路透社',
+  '联合早报': '联合早报',
+  'Google 新闻': '谷歌新闻',
+  '新浪财经': '新浪财经',
+  '中国新闻网': '中国新闻网',
+  '财新网': '财新网',
+  '证券之星': '证券之星',
+  '每日经济新闻': '每日经济新闻',
+  '系统': '系统',
+}
+const SOURCE_EN: Record<string, string> = {
+  '联合早报': 'Lianhe Zaobao',
+  'Google 新闻': 'Google News',
+  '新浪财经': 'Sina Finance',
+  '中国新闻网': 'China News Network',
+  '财新网': 'Caixin',
+  '证券之星': 'Stockstar',
+  '每日经济新闻': 'NBD',
+  '系统': 'System',
+}
+
+export function getNewsSourceDisplay(source: string, locale: Locale): string {
+  if (locale === 'zh') return SOURCE_ZH[source] ?? source
+  return SOURCE_EN[source] ?? source
 }
