@@ -136,6 +136,8 @@ const SOURCE_ZH: Record<string, string> = {
   '财新网': '财新网',
   '证券之星': '证券之星',
   '每日经济新闻': '每日经济新闻',
+  '凤凰财经': '凤凰财经',
+  '网易财经': '网易财经',
   '系统': '系统',
 }
 const SOURCE_EN: Record<string, string> = {
@@ -146,6 +148,8 @@ const SOURCE_EN: Record<string, string> = {
   '财新网': 'Caixin',
   '证券之星': 'Stockstar',
   '每日经济新闻': 'NBD',
+  '凤凰财经': 'Phoenix Finance',
+  '网易财经': 'NetEase Finance',
   '系统': 'System',
 }
 

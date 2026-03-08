@@ -14,13 +14,13 @@ export const messages: Record<string, { zh: string; en: string }> = {
 
   'bottomBar.switchToBeijing': { zh: '切至北京', en: 'Switch to Beijing' },
   'bottomBar.switchToUtc': { zh: '切至 UTC', en: 'Switch to UTC' },
-  'bottomBar.refreshHint': { zh: '行情 3s · 新闻/快讯/日历 45s', en: 'Market 3s · News/Feed/Calendar 45s' },
+  'bottomBar.refreshHint': { zh: '行情 3s · 新闻/快讯/日历 45s', en: 'Market 3s · News/Breaking/Calendar 45s' },
   'bottomBar.copyViewLink': { zh: '复制视角链接', en: 'Copy view link' },
   'bottomBar.copied': { zh: '已复制', en: 'Copied' },
   'bottomBar.comingUp': { zh: '即将到来', en: 'Coming up' },
   'bottomBar.calendarPlaceholder': { zh: '经济日历（数据接入中，暂无事件）', en: 'Economic calendar (no events yet)' },
 
-  'ticker.feed': { zh: '快讯', en: 'Feed' },
+  'ticker.feed': { zh: '快讯', en: 'Breaking' },
 
   'map.preset.world': { zh: '全球', en: 'World' },
   'map.preset.americas': { zh: '美洲', en: 'Americas' },

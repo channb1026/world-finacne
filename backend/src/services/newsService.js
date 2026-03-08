@@ -79,6 +79,7 @@ const RSS_FEEDS = [
   // === 新加坡 联合早报（官网无公开 RSS，使用聚合源）===
   { url: 'https://feedx.site/rss/zaobao.xml', source: '联合早报', region: 'SG', breaking: true },
   // === 中国（仅国内证券/财经/经济门户，专供 A 股资讯 + 地图 CN；热点财经不展示此类来源避免重复）===
+  // 海外或未配置代理时，多数国内源可能 403/超时，中国新闻网通常最稳定；配置 HTTPS_PROXY 可提高多源命中率
   { url: 'https://news.google.com/rss?hl=zh-CN&gl=CN&ceid=CN:zh-Hans', source: 'Google 新闻', region: 'CN', breaking: true },
   { url: 'https://rss.sina.com.cn/roll/finance/hot_roll.xml', source: '新浪财经', region: 'CN' },
   { url: 'https://rss.sina.com.cn/roll/stock/hot_roll.xml', source: '新浪财经', region: 'CN' },
@@ -87,6 +88,10 @@ const RSS_FEEDS = [
   { url: 'https://feedx.net/rss/caixin.xml', source: '财新网', region: 'CN' },
   { url: 'https://news.stockstar.com/rss/xml.aspx?file=xml%2Ffocus%2F3393.xml', source: '证券之星', region: 'CN' },
   { url: 'https://www.nbd.com.cn/rss/toutiao/articles/1483884.html', source: '每日经济新闻', region: 'CN' },
+  // 凤凰网财经、网易财经：增加 A 股资讯多样性；海外或受限时可能不可达
+  { url: 'https://finance.ifeng.com/rss/stock.xml', source: '凤凰财经', region: 'CN' },
+  { url: 'https://finance.ifeng.com/rss/finance.xml', source: '凤凰财经', region: 'CN' },
+  { url: 'https://money.163.com/special/00252EQ2/moneyrss.xml', source: '网易财经', region: 'CN' },
   // === 地区情报：各国「与该国相关」的新闻（Google News 按国家名搜索）；US/UK/CN/SG 已有多源，其余国家加搜索 ===
   ...REGIONS.filter((r) => !['US', 'UK', 'CN', 'SG'].includes(r) && REGION_SEARCH_QUERY[r]).map((region) => ({
     url: GOOGLE_NEWS_SEARCH_BASE + encodeURIComponent(REGION_SEARCH_QUERY[region]) + GOOGLE_NEWS_SEARCH_SUFFIX,
@@ -372,16 +377,16 @@ export async function getMapSpots() {
   }))
 }
 
-/** A 股资讯：仅展示国内证券/财经/经济门户。新浪/财新/证券之星/每日经济新闻等源可能因网络或反爬不可达，中国新闻网通常最稳定；可配置 HTTPS_PROXY 后重启尝试。 */
-const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻']
-const A_SHARE_SOURCE_ORDER = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻']
+/** A 股资讯：仅展示国内证券/财经/经济门户。新浪/财新/证券之星/每日经济新闻等源可能因网络或反爬不可达，中国新闻网通常最稳定；可配置 HTTPS_PROXY 后重启尝试。凤凰财经、网易财经为补充源。 */
+const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
+const A_SHARE_SOURCE_ORDER = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
 
 export async function getAShareNews() {
   if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
   const cnRaw = cache.byRegion.CN || []
   const cn = cnRaw.filter((item) => A_SHARE_ALLOWED_SOURCES.includes(item.source))
   if (cn.length === 0) {
-    return [{ id: '0', title: '暂无国内资讯。新浪财经、中国新闻网、财新网、证券之星、每日经济新闻等源当前不可达，请检查网络或配置 HTTPS_PROXY 后重启后端。', source: '系统', time: '—' }]
+    return [{ id: '0', title: '暂无国内资讯。请检查网络或配置 HTTPS_PROXY 后重启后端（详见 README「A 股资讯多源」）。', source: '系统', time: '—' }]
   }
   const bySource = {}
   cn.forEach((item) => {
