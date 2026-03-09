@@ -57,9 +57,9 @@ const A_SHARE_SYMBOL_EN: Record<string, string> = {
 /** 利率/波动率面板 */
 const RATE_NAME_EN: Record<string, string> = {
   '10Y美债': '10Y Treasury',
-  '2Y美债': '2Y Treasury',
+  '3M美债': '3M Treasury',
   'VIX': 'VIX',
-  '利差10Y-2Y': '10Y-2Y Spread',
+  '利差10Y-3M': '10Y-3M Spread',
 }
 
 /** 地区 id -> 英文名（与 mock MAP_SPOTS_DEFAULT 及后端 REGIONS 一致） */

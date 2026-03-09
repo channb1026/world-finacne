@@ -305,6 +305,25 @@ html, body, #root {
   width: 100%;
   background: var(--bg-deep);
 }
+.value-flash {
+  animation: value-flash-text 0.7s ease-out;
+}
+@keyframes value-flash-text {
+  0% {
+    opacity: 0.35; /* 一开始更淡，但保留原有红/绿等颜色关系 */
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.map-skeleton {
+  align-items: center;
+  justify-content: center;
+}
+.map-skeleton__content {
+  color: var(--text-muted);
+  font-size: 13px;
+}
 /* 地图区域预设按钮条 */
 .map-presets-bar {
   position: absolute;

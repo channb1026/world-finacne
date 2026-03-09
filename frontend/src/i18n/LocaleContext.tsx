@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useCallback, useMemo, useState, useEffect } from 'react'
 import type { Locale } from './translations'
 import { getMessage } from './translations'
@@ -8,7 +9,9 @@ function loadStoredLocale(): Locale {
   try {
     const v = localStorage.getItem(STORAGE_KEY) as Locale | null
     if (v === 'zh' || v === 'en') return v
-  } catch {}
+  } catch (err) {
+    console.warn('[i18n] loadStoredLocale failed:', err)
+  }
   return 'zh'
 }
 
@@ -26,7 +29,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, locale)
-    } catch {}
+    } catch (err) {
+      console.warn('[i18n] persist locale failed:', err)
+    }
   }, [locale])
 
   const setLocale = useCallback((l: Locale) => {

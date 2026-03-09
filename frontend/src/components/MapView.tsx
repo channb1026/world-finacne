@@ -10,7 +10,7 @@ const MapLayerContext = createContext<{ showSpotsLayer: boolean; setShowSpotsLay
 import L from 'leaflet'
 import type { MapSpot } from '../data/mock'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
-import { fetchMapSpots, POLL_INTERVAL_NEWS } from '../services/api'
+import { useData } from '../state/DataContext'
 import { useLocale } from '../i18n/LocaleContext'
 import { getRegionDisplayName } from '../i18n/displayNames'
 import 'leaflet/dist/leaflet.css'
@@ -213,14 +213,16 @@ function getStoredShowSpotsLayer(): boolean {
   try {
     const v = localStorage.getItem(LAYER_SPOTS_KEY)
     return v !== 'false'
-  } catch {
+  } catch (err) {
+    console.warn('[map] read layer toggle failed:', err)
     return true
   }
 }
 
 export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
   const { t, locale } = useLocale()
-  const [spots, setSpots] = useState<MapSpot[]>(MAP_SPOTS_DEFAULT)
+  const { data } = useData()
+  const spots = data.mapSpots.length > 0 ? data.mapSpots : MAP_SPOTS_DEFAULT
   const [showSpotsLayer, setShowSpotsLayerState] = useState(getStoredShowSpotsLayer)
   const initialView = useMemo(() => getViewFromUrl(), [])
 
@@ -228,14 +230,9 @@ export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
     setShowSpotsLayerState(v)
     try {
       localStorage.setItem(LAYER_SPOTS_KEY, String(v))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    const load = () => fetchMapSpots().then(setSpots).catch(() => setSpots(MAP_SPOTS_DEFAULT))
-    load()
-    const id = setInterval(load, POLL_INTERVAL_NEWS)
-    return () => clearInterval(id)
+    } catch (err) {
+      console.warn('[map] persist layer toggle failed:', err)
+    }
   }, [])
 
   const handleSpotClick = useCallback(

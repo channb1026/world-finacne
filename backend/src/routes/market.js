@@ -7,7 +7,7 @@ import {
   ratesPanel,
   calendar,
 } from '../data/market.js'
-import { aShareNews, tickerTitles } from '../data/news.js'
+import { hotNews, aShareNews, tickerTitles, mapSpots } from '../data/news.js'
 
 const CACHE_MARKET_SEC = 3
 const CACHE_NEWS_SEC = 45
@@ -17,6 +17,55 @@ function cacheHeader(sec) {
 }
 
 export function registerMarketRoutes(app) {
+  app.get('/api/dashboard', async (_req, res) => {
+    try {
+      const [
+        ratesData,
+        ratesPanelData,
+        stocksData,
+        keyMetricsData,
+        commoditiesData,
+        aShareIndicesData,
+        newsData,
+        tickerData,
+        mapSpotsData,
+        aShareNewsData,
+      ] = await Promise.all([
+        rates(),
+        ratesPanel(),
+        stocks(),
+        keyMetrics(),
+        commodities(),
+        aShareIndices(),
+        hotNews(),
+        tickerTitles(),
+        mapSpots(),
+        aShareNews(),
+      ])
+
+      res.set(cacheHeader(Math.max(CACHE_MARKET_SEC, CACHE_NEWS_SEC)))
+      res.json({
+        market: {
+          rates: ratesData,
+          ratesPanel: ratesPanelData,
+          stocks: stocksData,
+          keyMetrics: keyMetricsData,
+          commodities: commoditiesData,
+          aShareIndices: aShareIndicesData,
+        },
+        news: {
+          news: newsData,
+          ticker: tickerData,
+          mapSpots: mapSpotsData,
+          aShareNews: aShareNewsData,
+        },
+      })
+    } catch (err) {
+      console.warn('[api] /api/dashboard error:', err.message)
+      res.status(500).json({ market: {}, news: {} })
+    }
+  })
+
   app.get('/api/rates', async (_req, res) => {
     try {
       res.set(cacheHeader(CACHE_MARKET_SEC))

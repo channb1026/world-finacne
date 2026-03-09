@@ -126,10 +126,12 @@ const SOURCE_ZH = {
 }
 
 /** 国内证券/财经/经济门户（仅用于 A 股资讯）；热点财经不展示这些来源，避免与 A 股资讯重复 */
-const DOMESTIC_SOURCES = ['Google 新闻', '新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻']
+const DOMESTIC_SOURCES = ['Google 新闻', '新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
 
 let cache = { all: [], hot: [], breaking: [], byRegion: {}, updatedAt: 0 }
 const CACHE_MS = 30 * 1000 // 30 秒
+/** 单飞控制：缓存过期时多个接口并发请求只触发一次全量 RSS 抓取 */
+let refreshPromise = null
 const REGION_ITEMS_MAX = 30 // 地区情报最多返回条数
 let failedSourcesLogged = new Set()
 
@@ -325,22 +327,57 @@ async function refreshCache() {
   }
 }
 
+/** 确保缓存有效：过期时单飞刷新，并发请求共享同一 refreshPromise。
+ * 刷新过程中如遇异常，保留旧缓存并记录日志，避免直接把错误抛给调用方。
+ */
+async function ensureCache() {
+  if (Date.now() - cache.updatedAt <= CACHE_MS) return
+  if (refreshPromise) {
+    try {
+      await refreshPromise
+    } catch (err) {
+      console.warn('[news] ensureCache shared refresh failed:', err?.message || err)
+    }
+    return
+  }
+  refreshPromise = (async () => {
+    try {
+      await refreshCache()
+    } catch (err) {
+      console.warn('[news] ensureCache refresh failed:', err?.message || err)
+    } finally {
+      refreshPromise = null
+    }
+  })()
+  try {
+    await refreshPromise
+  } catch {
+    // 已在上层统一记录日志，这里静默，调用方继续使用旧缓存
+  }
+}
+
+/** 后台定时预刷新：每 CACHE_MS 主动刷新缓存，请求只读内存 */
+export function startNewsBackgroundRefresh() {
+  ensureCache().catch(() => {})
+  setInterval(() => ensureCache().catch(() => {}), CACHE_MS)
+}
+
 /** 热点财经：返回原文来源，由前端按界面语言展示中文/英文 */
 export async function getHotNews() {
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   return cache.hot.map((item) => ({ ...item }))
 }
 
 /** 地区情报：返回与该国相关的资讯；来源由前端按界面语言展示 */
 export async function getNewsByRegion(region) {
   if (!REGIONS.includes(region)) return []
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   const raw = (cache.byRegion[region] || []).slice(0, REGION_ITEMS_MAX)
   return raw.map((item) => ({ ...item }))
 }
 
 export async function getAllNewsForMap() {
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   return cache.all
 }
 
@@ -366,7 +403,7 @@ const SPOT_COORDS = {
 }
 
 export async function getMapSpots() {
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   const counts = getRegionCounts()
   return REGIONS.map((id) => ({
     id,
@@ -382,7 +419,7 @@ const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网',
 const A_SHARE_SOURCE_ORDER = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
 
 export async function getAShareNews() {
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   const cnRaw = cache.byRegion.CN || []
   const cn = cnRaw.filter((item) => A_SHARE_ALLOWED_SOURCES.includes(item.source))
   if (cn.length === 0) {
@@ -417,6 +454,6 @@ export async function getAShareNews() {
 
 /** 快讯：全球突发要闻（仅综合/国际源），供底部单行滚动；返回 title + link 以支持点击打开 */
 export async function getTickerTitles() {
-  if (Date.now() - cache.updatedAt > CACHE_MS) await refreshCache()
+  await ensureCache()
   return (cache.breaking || []).slice(0, 18).map((n) => ({ title: n.title, link: n.link || '' }))
 }

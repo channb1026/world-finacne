@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, lazy, Suspense } from 'react'
 import { FXPanel } from '../components/FXPanel'
 import { CommoditiesPanel } from '../components/CommoditiesPanel'
 import { NewsPanel } from '../components/NewsPanel'
@@ -6,10 +6,16 @@ import { StocksPanel } from '../components/StocksPanel'
 import { ASharePanel } from '../components/ASharePanel'
 import { KeyMetricsBar } from '../components/KeyMetricsBar'
 import { TickerStrip } from '../components/TickerStrip'
-import { MapView } from '../components/MapView'
-import { RegionDrawer } from '../components/RegionDrawer'
+import { MapSkeleton } from '../components/MapSkeleton'
 import { BottomBar } from '../components/BottomBar'
 import type { RegionId } from '../data/mock'
+
+const MapView = lazy(() =>
+  import('../components/MapView').then((m) => ({ default: m.MapView }))
+)
+const RegionDrawer = lazy(() =>
+  import('../components/RegionDrawer').then((m) => ({ default: m.RegionDrawer }))
+)
 
 export function WarRoomView() {
   const [selectedRegion, setSelectedRegion] = useState<RegionId | null>(null)
@@ -28,16 +34,20 @@ export function WarRoomView() {
         </aside>
         <main className="war-room__center">
           <KeyMetricsBar />
-          <MapView
-            selectedRegionId={selectedRegion}
-            onRegionSelect={handleRegionSelect}
-          />
+          <Suspense fallback={<MapSkeleton />}>
+            <MapView
+              selectedRegionId={selectedRegion}
+              onRegionSelect={handleRegionSelect}
+            />
+          </Suspense>
           <TickerStrip />
           {selectedRegion && (
-            <RegionDrawer
-              regionId={selectedRegion}
-              onClose={() => setSelectedRegion(null)}
-            />
+            <Suspense fallback={null}>
+              <RegionDrawer
+                regionId={selectedRegion}
+                onClose={() => setSelectedRegion(null)}
+              />
+            </Suspense>
           )}
         </main>
         <aside className="war-room__right">

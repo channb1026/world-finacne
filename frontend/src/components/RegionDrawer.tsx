@@ -1,18 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import type { RegionId } from '../data/mock'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
-import { fetchNewsByRegion, POLL_INTERVAL_NEWS } from '../services/api'
+import { fetchNewsByRegion } from '../services/api'
 import type { NewsItem } from '../data/mock'
 import { useLocale } from '../i18n/LocaleContext'
+import { useData } from '../state/DataContext'
 import { getRegionDisplayName, getNewsSourceDisplay } from '../i18n/displayNames'
+import { isSafeLink } from '../utils/linkSafety'
 
 interface RegionDrawerProps {
   regionId: RegionId | null
   onClose: () => void
 }
 
+const REGION_POLL_MS = 45 * 1000
+
 export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
   const { t, locale } = useLocale()
+  const { isVisible } = useData()
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
@@ -27,11 +32,13 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
         .finally(() => setLoading(false))
     }
     load()
-    intervalRef.current = setInterval(load, POLL_INTERVAL_NEWS)
+    if (isVisible) {
+      intervalRef.current = setInterval(load, REGION_POLL_MS)
+    }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [regionId])
+  }, [regionId, isVisible])
 
   if (!regionId) return null
   const region = MAP_SPOTS_DEFAULT.find((s) => s.id === regionId)
@@ -52,7 +59,7 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
             <div className="news-item">{t('common.loading')}</div>
           ) : news.length ? (
             news.map((n) => {
-              const href = n.link && n.link.startsWith('http') ? n.link : undefined
+              const href = isSafeLink(n.link) ? n.link : undefined
               return (
                 <div key={n.id} className="news-item">
                   <div className="news-item__row">

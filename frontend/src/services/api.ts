@@ -97,3 +97,25 @@ export async function fetchCalendar(): Promise<CalendarEvent[]> {
   const data = await fetchApi<CalendarEvent[]>('/calendar')
   return Array.isArray(data) ? data : []
 }
+
+export interface DashboardPayload {
+  market: {
+    rates: FxPair[]
+    ratesPanel: RateItem[]
+    stocks: StockIndex[]
+    keyMetrics: KeyMetric[]
+    commodities: Commodity[]
+    aShareIndices: AShareIndex[]
+  }
+  news: {
+    news: NewsItem[]
+    ticker: TickerItem[]
+    mapSpots: MapSpot[]
+    aShareNews: AShareNewsItem[]
+  }
+}
+
+export async function fetchDashboard(): Promise<DashboardPayload> {
+  const data = await fetchApi<DashboardPayload>('/dashboard')
+  return data
+}
