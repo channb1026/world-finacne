@@ -18,15 +18,15 @@ import 'leaflet/dist/leaflet.css'
 /** 深色底图：Stadia Alidade Smooth Dark；仅请求合法瓦片坐标，避免 404 */
 const DARK_TILE = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png'
 
-/** 区域预设：中心 [lat, lng]、缩放；label 由 i18n 按 id 取 map.preset.{id} */
+/** 区域预设：中心 [lat, lng]、缩放；label 由 i18n 按 id 取 map.preset.{id}；点击后进一步放大以便查看国家亮点 */
 const MAP_PRESETS = [
   { id: 'world', center: [25, 20] as [number, number], zoom: 3 },
-  { id: 'americas', center: [20, -100] as [number, number], zoom: 3 },
-  { id: 'europe', center: [52, 10] as [number, number], zoom: 4 },
-  { id: 'asia', center: [25, 105] as [number, number], zoom: 4 },
-  { id: 'china', center: [35, 105] as [number, number], zoom: 4 },
-  { id: 'mena', center: [26, 45] as [number, number], zoom: 4 },
-  { id: 'africa', center: [0, 22] as [number, number], zoom: 3 },
+  { id: 'americas', center: [20, -100] as [number, number], zoom: 4 },
+  { id: 'europe', center: [52, 10] as [number, number], zoom: 5 },
+  { id: 'asia', center: [25, 105] as [number, number], zoom: 5 },
+  { id: 'china', center: [35, 105] as [number, number], zoom: 5 },
+  { id: 'mena', center: [26, 45] as [number, number], zoom: 5 },
+  { id: 'africa', center: [0, 22] as [number, number], zoom: 4 },
 ]
 
 function getViewFromUrl(): { center: [number, number]; zoom: number } {
