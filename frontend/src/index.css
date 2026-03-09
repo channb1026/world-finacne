@@ -874,18 +874,22 @@ html, body, #root {
   color: var(--text-muted);
   margin-bottom: 6px;
 }
-/* A 股指数行：名称 | 点位(固定列宽右对齐) | 涨跌(固定列宽右对齐) */
+/* A 股指数行：名称 | 点位(固定列宽右对齐) | 涨跌(固定列宽右对齐)，禁止换行避免深证成指等出现两行 */
 .a-share-row {
   display: grid;
-  grid-template-columns: 1fr 88px 110px;
+  grid-template-columns: 1fr 88px 122px;
   align-items: baseline;
   gap: 12px;
   padding: 4px 0;
   font-size: 13px;
+  white-space: nowrap;
 }
 .a-share-row__name {
   font-weight: normal;
   color: var(--text-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .a-share-row__value {
   font-weight: normal;
@@ -898,6 +902,7 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
   text-align: right;
   font-size: 12px;
+  white-space: nowrap;
 }
 .a-share-row__chg.up { color: var(--up); }
 .a-share-row__chg.down { color: var(--down); }
