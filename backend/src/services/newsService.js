@@ -13,6 +13,7 @@ import {
   markSourceFailure,
 } from '../sourceStatus.js'
 import { classifyNewsItem } from './newsClassifier.js'
+import { withTimeout } from '../utils/withTimeout.js'
 
 // 统一 HTTPS Agent：延长超时、保持连接，缓解 TLS 握手被中断或慢速网络
 const httpsAgent = new https.Agent({
@@ -346,16 +347,6 @@ const CIRCUIT_FAILURE_THRESHOLD = 3
 const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 分钟
 const circuitByUrl = new Map() // url -> { failures, lastAttempt }
 
-function withTimeout(promise, ms, label) {
-  let timer = null
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-  })
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timer) clearTimeout(timer)
-  })
-}
-
 async function mapWithConcurrency(items, limit, worker) {
   const results = new Array(items.length)
   let nextIndex = 0
@@ -422,6 +413,9 @@ function normalizeItem(entry, source, region, id, baseUrl) {
   } else {
     link = ''
   }
+  const normalizedLink = link ? link.replace(/[?#].*$/, '') : ''
+  const tokens = headlineTokens(title)
+  const signature = tokens.slice(0, 12).join(' ')
   return {
     id: String(id),
     title,
@@ -430,6 +424,9 @@ function normalizeItem(entry, source, region, id, baseUrl) {
     region,
     link,
     pubDateMs: Number.isNaN(pubDateMs) ? 0 : pubDateMs,
+    normalizedLink,
+    headlineTokens: tokens,
+    headlineSignature: signature,
   }
 }
 
@@ -475,12 +472,12 @@ function shareHeadlinePrefix(tokensA, tokensB, prefixLength = 4) {
 }
 
 function areLikelySameStory(candidate, existing) {
-  const candidateLink = candidate.link ? candidate.link.replace(/[?#].*$/, '') : ''
-  const existingLink = existing.link ? existing.link.replace(/[?#].*$/, '') : ''
+  const candidateLink = candidate.normalizedLink || (candidate.link ? candidate.link.replace(/[?#].*$/, '') : '')
+  const existingLink = existing.normalizedLink || (existing.link ? existing.link.replace(/[?#].*$/, '') : '')
   if (candidateLink && existingLink && candidateLink === existingLink) return true
 
-  const candidateTokens = headlineTokens(candidate.title)
-  const existingTokens = headlineTokens(existing.title)
+  const candidateTokens = candidate.headlineTokens || headlineTokens(candidate.title)
+  const existingTokens = existing.headlineTokens || headlineTokens(existing.title)
   if (candidateTokens.length === 0 || existingTokens.length === 0) return false
 
   const similarity = jaccardSimilarity(candidateTokens, existingTokens)
@@ -510,7 +507,7 @@ function createStoryCluster(item) {
 function mergeStoryCluster(cluster, item) {
   cluster.articleCount += 1
   if (item.source) cluster.relatedSources.add(item.source)
-  const normalizedLink = item.link ? item.link.replace(/[?#].*$/, '') : ''
+  const normalizedLink = item.normalizedLink || (item.link ? item.link.replace(/[?#].*$/, '') : '')
   const alreadyIncluded = cluster.relatedItems.some((entry) => {
     const entryLink = entry.link ? entry.link.replace(/[?#].*$/, '') : ''
     return (normalizedLink && entryLink && normalizedLink === entryLink) || entry.title === item.title
@@ -553,18 +550,39 @@ function finalizeStoryCluster(cluster) {
   }
 }
 
+function getStoryLookupKeys(item) {
+  const keys = new Set()
+  const signature = item.headlineSignature || headlineSignature(item.title)
+  const tokens = item.headlineTokens || headlineTokens(item.title)
+  if (signature) keys.add(`sig:${signature}`)
+  if (tokens.length > 0) keys.add(`prefix:${tokens.slice(0, 4).join(' ')}`)
+  if (item.normalizedLink) keys.add(`link:${item.normalizedLink}`)
+  return [...keys]
+}
+
 function dedupeItems(items, { limit }) {
   const clusters = []
+  const clustersByKey = new Map()
 
   for (const item of items) {
-    const signature = headlineSignature(item.title)
+    const signature = item.headlineSignature || headlineSignature(item.title)
     if (!signature && !item.link && !item.title) continue
-    const existingCluster = clusters.find((cluster) => areLikelySameStory(item, cluster.representative))
+    const lookupKeys = getStoryLookupKeys(item)
+    const candidateClusters = lookupKeys.length > 0
+      ? [...new Set(lookupKeys.flatMap((key) => clustersByKey.get(key) || []))]
+      : clusters
+    const existingCluster = candidateClusters.find((cluster) => areLikelySameStory(item, cluster.representative))
     if (existingCluster) {
       mergeStoryCluster(existingCluster, item)
       continue
     }
-    clusters.push(createStoryCluster(item))
+    const nextCluster = createStoryCluster(item)
+    clusters.push(nextCluster)
+    for (const key of lookupKeys) {
+      const list = clustersByKey.get(key) || []
+      list.push(nextCluster)
+      clustersByKey.set(key, list)
+    }
     if (clusters.length >= limit) break
   }
 
@@ -573,15 +591,26 @@ function dedupeItems(items, { limit }) {
 
 function dedupeBucket(list) {
   const clusters = []
+  const clustersByKey = new Map()
   for (const item of list) {
-    const signature = headlineSignature(item.title)
+    const signature = item.headlineSignature || headlineSignature(item.title)
     if (!signature && !item.link && !item.title) continue
-    const existingCluster = clusters.find((cluster) => areLikelySameStory(item, cluster.representative))
+    const lookupKeys = getStoryLookupKeys(item)
+    const candidateClusters = lookupKeys.length > 0
+      ? [...new Set(lookupKeys.flatMap((key) => clustersByKey.get(key) || []))]
+      : clusters
+    const existingCluster = candidateClusters.find((cluster) => areLikelySameStory(item, cluster.representative))
     if (existingCluster) {
       mergeStoryCluster(existingCluster, item)
       continue
     }
-    clusters.push(createStoryCluster(item))
+    const nextCluster = createStoryCluster(item)
+    clusters.push(nextCluster)
+    for (const key of lookupKeys) {
+      const list = clustersByKey.get(key) || []
+      list.push(nextCluster)
+      clustersByKey.set(key, list)
+    }
   }
   return clusters.map(finalizeStoryCluster)
 }
@@ -625,7 +654,7 @@ async function fetchFeed(feedConfig, idStart) {
   }
 }
 
-async function refreshCache() {
+async function refreshCache(expectedGeneration) {
   let id = 1
   const all = []
   const byRegion = {}
@@ -666,6 +695,11 @@ async function refreshCache() {
       newFailed.forEach((s) => failedSourcesLogged.add(s))
       console.warn(`[news] 不可达 (${newFailed.length} 个源):`, newFailed.join(', '))
     }
+    for (const source of [...failedSourcesLogged]) {
+      if (!unique.includes(source)) failedSourcesLogged.delete(source)
+    }
+  } else {
+    failedSourcesLogged.clear()
   }
 
   // 全量与分地区均按发布时间新→旧排序
@@ -734,6 +768,10 @@ async function refreshCache() {
     'breaking'
   ).slice(0, BREAKING_TARGET)
 
+  if (expectedGeneration !== undefined && expectedGeneration !== refreshGeneration) {
+    console.warn('[news] stale refresh (gen %d vs %d) discarded', expectedGeneration, refreshGeneration)
+    return
+  }
   cache = {
     all: all.slice(0, 300),
     hot: hot.slice(0, HOT_TARGET),
@@ -751,7 +789,10 @@ async function refreshCache() {
 
 /** 确保缓存有效：过期时单飞刷新，并发请求共享同一 refreshPromise。
  * 刷新过程中如遇异常，保留旧缓存并记录日志，避免直接把错误抛给调用方。
+ * refreshGeneration 用于防止超时后僵尸 refreshCache() 覆盖新数据。
  */
+let refreshGeneration = 0
+
 async function ensureCache() {
   if (Date.now() - cache.updatedAt <= CACHE_MS) return
   if (refreshPromise) {
@@ -762,9 +803,10 @@ async function ensureCache() {
     }
     return
   }
+  const gen = ++refreshGeneration
   refreshPromise = (async () => {
     try {
-      await withTimeout(refreshCache(), NEWS_REFRESH_TIMEOUT_MS, 'news refresh')
+      await withTimeout(refreshCache(gen), NEWS_REFRESH_TIMEOUT_MS, 'news refresh')
     } catch (err) {
       console.warn('[news] ensureCache refresh failed:', err?.message || err)
     } finally {
@@ -782,6 +824,10 @@ async function ensureCache() {
 export function startNewsBackgroundRefresh() {
   ensureCache().catch(() => {})
   return setInterval(() => ensureCache().catch(() => {}), CACHE_MS)
+}
+
+export function destroyNewsResources() {
+  httpsAgent.destroy()
 }
 
 /** 热点财经：返回原文来源，由前端按界面语言展示中文/英文 */

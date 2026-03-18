@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import type { AShareNewsItem, NewsItem } from '../types/data'
 import { useLocale } from '../i18n/LocaleContext'
 import { getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay, getStoryClusterDisplay } from '../i18n/displayNames'
@@ -12,7 +12,7 @@ interface NewsEventCardProps {
   compact?: boolean
 }
 
-export function NewsEventCard({ item, compact = false }: NewsEventCardProps) {
+export const NewsEventCard = memo(function NewsEventCard({ item, compact = false }: NewsEventCardProps) {
   const { locale, t } = useLocale()
   const [expanded, setExpanded] = useState(false)
   const href = isSafeLink(item.link) ? item.link : undefined
@@ -125,4 +125,4 @@ export function NewsEventCard({ item, compact = false }: NewsEventCardProps) {
       )}
     </div>
   )
-}
+})

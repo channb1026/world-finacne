@@ -1,9 +1,11 @@
+import { memo } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData } from '../state/DataContext'
 import { getCommodityDisplayName, getCommodityUnitDisplay } from '../i18n/displayNames'
+import { useValueFlash } from '../hooks/useValueFlash'
 import { formatLastUpdated } from '../utils/format'
 
-function CommodityRow({
+const CommodityRow = memo(function CommodityRow({
   name,
   value,
   unit,
@@ -20,20 +22,25 @@ function CommodityRow({
 }) {
   const displayValue =
     typeof value === 'number' && value > 1000 ? value.toLocaleString() : value
+  const valueRef = useValueFlash<HTMLSpanElement>(value, animate)
+  const changeRef = useValueFlash<HTMLSpanElement>(changePct, animate)
+
+  const heat = Math.min(Math.abs(changePct) / 4, 1)
+  const heatColor = changePct >= 0 ? `rgba(63,185,80,${heat * 0.06})` : `rgba(248,81,73,${heat * 0.06})`
 
   return (
-    <div className="commodity-row">
+    <div className="commodity-row" style={{ background: heatColor }}>
       <span className="commodity-row__name">{getCommodityDisplayName(name, locale)}</span>
-      <span key={`${name}-${value}`} className={`commodity-row__value ${animate ? 'value-flash' : ''}`}>
+      <span ref={valueRef} className="commodity-row__value">
         {displayValue}
       </span>
       <span className="commodity-row__unit">{getCommodityUnitDisplay(unit, locale)}</span>
-      <span key={`${name}-${changePct}`} className={`commodity-row__chg ${changePct >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+      <span ref={changeRef} className={`commodity-row__chg ${changePct >= 0 ? 'up' : 'down'}`}>
         {changePct >= 0 ? '+' : ''}{changePct}%
       </span>
     </div>
   )
-}
+})
 
 export function CommoditiesPanel() {
   const { locale, t } = useLocale()

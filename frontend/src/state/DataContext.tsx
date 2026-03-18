@@ -14,16 +14,6 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  fetchRates,
-  fetchStocks,
-  fetchKeyMetrics,
-  fetchCommodities,
-  fetchRatesPanel,
-  fetchAShareIndices,
-  fetchNews,
-  fetchTicker,
-  fetchMapSpots,
-  fetchAShareNews,
   fetchDashboard,
   fetchSourceHealth,
   POLL_INTERVAL_MARKET,
@@ -212,145 +202,94 @@ const SourceHealthContext = createContext<SourceHealthDataSlice>({
 
 async function loadMarket(set: DataSetter, signal?: AbortSignal) {
   const now = new Date()
-  const results = await Promise.allSettled([
-    fetchRates(signal),
-    fetchRatesPanel(signal),
-    fetchStocks(signal),
-    fetchKeyMetrics(signal),
-    fetchCommodities(signal),
-    fetchAShareIndices(signal),
-  ])
+  try {
+    const dash = await fetchDashboard(signal, 'market')
 
-  if (signal?.aborted) return
+    if (signal?.aborted) return
 
-  set((prev) => {
-    const [ratesR, ratesPanelR, stocksR, keyMetricsR, commoditiesR, aShareIndicesR] = results
-    const next = cloneState(prev)
-
-    if (ratesR.status === 'fulfilled') {
-      next.rates = Array.isArray(ratesR.value) ? ratesR.value : []
+    set((prev) => {
+      const next = cloneState(prev)
+      next.rates = dash.market.rates
+      next.ratesPanel = dash.market.ratesPanel
+      next.stocks = dash.market.stocks
+      next.keyMetrics = dash.market.keyMetrics
+      next.commodities = dash.market.commodities
+      next.aShareIndices = dash.market.aShareIndices
       next.error.rates = false
-      next.loaded.rates = true
-    } else {
-      next.error.rates = true
-      next.loaded.rates = true
-    }
-
-    if (ratesPanelR.status === 'fulfilled') {
-      next.ratesPanel = Array.isArray(ratesPanelR.value) ? ratesPanelR.value : []
       next.error.ratesPanel = false
-      next.loaded.ratesPanel = true
-    } else {
-      next.error.ratesPanel = true
-      next.loaded.ratesPanel = true
-    }
-
-    if (stocksR.status === 'fulfilled') {
-      next.stocks = Array.isArray(stocksR.value) ? stocksR.value : []
       next.error.stocks = false
-      next.loaded.stocks = true
-    } else {
-      next.error.stocks = true
-      next.loaded.stocks = true
-    }
-
-    if (keyMetricsR.status === 'fulfilled') {
-      next.keyMetrics = Array.isArray(keyMetricsR.value) ? keyMetricsR.value : []
       next.error.keyMetrics = false
-      next.loaded.keyMetrics = true
-    } else {
-      next.error.keyMetrics = true
-      next.loaded.keyMetrics = true
-    }
-
-    if (commoditiesR.status === 'fulfilled') {
-      next.commodities = Array.isArray(commoditiesR.value) ? commoditiesR.value : []
       next.error.commodities = false
-      next.loaded.commodities = true
-    } else {
-      next.error.commodities = true
-      next.loaded.commodities = true
-    }
-
-    if (aShareIndicesR.status === 'fulfilled') {
-      next.aShareIndices = Array.isArray(aShareIndicesR.value) ? aShareIndicesR.value : []
       next.error.aShareIndices = false
+      next.loaded.rates = true
+      next.loaded.ratesPanel = true
+      next.loaded.stocks = true
+      next.loaded.keyMetrics = true
+      next.loaded.commodities = true
       next.loaded.aShareIndices = true
-    } else {
-      next.error.aShareIndices = true
-      next.loaded.aShareIndices = true
-    }
-
-    if (
-      [ratesR, ratesPanelR, stocksR, keyMetricsR, commoditiesR, aShareIndicesR].some(
-        (r) => r.status === 'fulfilled'
-      )
-    ) {
       next.lastUpdated.market = now
-    }
-
-    return next
-  })
+      return next
+    })
+  } catch {
+    if (signal?.aborted) return
+    set((prev) => {
+      const next = cloneState(prev)
+      next.error.rates = true
+      next.error.ratesPanel = true
+      next.error.stocks = true
+      next.error.keyMetrics = true
+      next.error.commodities = true
+      next.error.aShareIndices = true
+      next.loaded.rates = true
+      next.loaded.ratesPanel = true
+      next.loaded.stocks = true
+      next.loaded.keyMetrics = true
+      next.loaded.commodities = true
+      next.loaded.aShareIndices = true
+      return next
+    })
+  }
 }
 
 async function loadNews(set: DataSetter, signal?: AbortSignal) {
   const now = new Date()
-  const results = await Promise.allSettled([
-    fetchNews(signal),
-    fetchTicker(signal),
-    fetchMapSpots(signal),
-    fetchAShareNews(signal),
-  ])
+  try {
+    const dash = await fetchDashboard(signal, 'news')
 
-  if (signal?.aborted) return
+    if (signal?.aborted) return
 
-  set((prev) => {
-    const [newsR, tickerR, mapSpotsR, aShareNewsR] = results
-    const next = cloneState(prev)
-
-    if (newsR.status === 'fulfilled') {
-      next.news = Array.isArray(newsR.value) ? newsR.value : []
+    set((prev) => {
+      const next = cloneState(prev)
+      next.news = dash.news.news
+      next.ticker = dash.news.ticker
+      next.mapSpots = dash.news.mapSpots
+      next.aShareNews = dash.news.aShareNews
       next.error.news = false
-      next.loaded.news = true
-    } else {
-      next.error.news = true
-      next.loaded.news = true
-    }
-    if (tickerR.status === 'fulfilled') {
-      next.ticker = Array.isArray(tickerR.value) ? tickerR.value : []
       next.error.ticker = false
-      next.loaded.ticker = true
-    } else {
-      next.error.ticker = true
-      next.loaded.ticker = true
-    }
-    if (mapSpotsR.status === 'fulfilled') {
-      next.mapSpots = Array.isArray(mapSpotsR.value) ? mapSpotsR.value : []
       next.error.mapSpots = false
-      next.loaded.mapSpots = true
-    } else {
-      next.error.mapSpots = true
-      next.loaded.mapSpots = true
-    }
-    if (aShareNewsR.status === 'fulfilled') {
-      next.aShareNews = Array.isArray(aShareNewsR.value) ? aShareNewsR.value : []
       next.error.aShareNews = false
+      next.loaded.news = true
+      next.loaded.ticker = true
+      next.loaded.mapSpots = true
       next.loaded.aShareNews = true
-    } else {
-      next.error.aShareNews = true
-      next.loaded.aShareNews = true
-    }
-
-    if (
-      [newsR, tickerR, mapSpotsR, aShareNewsR].some(
-        (r) => r.status === 'fulfilled'
-      )
-    ) {
       next.lastUpdated.news = now
-    }
-
-    return next
-  })
+      return next
+    })
+  } catch {
+    if (signal?.aborted) return
+    set((prev) => {
+      const next = cloneState(prev)
+      next.error.news = true
+      next.error.ticker = true
+      next.error.mapSpots = true
+      next.error.aShareNews = true
+      next.loaded.news = true
+      next.loaded.ticker = true
+      next.loaded.mapSpots = true
+      next.loaded.aShareNews = true
+      return next
+    })
+  }
 }
 
 async function loadSourceHealth(set: DataSetter, signal?: AbortSignal) {
@@ -466,7 +405,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController()
     ;(async () => {
       try {
-        const dash: DashboardPayload = await fetchDashboard(controller.signal)
+        const dash: DashboardPayload = await fetchDashboard(controller.signal, 'all')
         if (controller.signal.aborted || !dash) return
         setData((prev) => ({
           ...cloneState(prev),

@@ -1,9 +1,11 @@
+import { memo } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData } from '../state/DataContext'
 import { getKeyMetricDisplayName } from '../i18n/displayNames'
+import { useValueFlash } from '../hooks/useValueFlash'
 import { formatLastUpdated } from '../utils/format'
 
-function KeyMetricItem({
+const KeyMetricItem = memo(function KeyMetricItem({
   name,
   value,
   changePct,
@@ -16,16 +18,19 @@ function KeyMetricItem({
   locale: 'zh' | 'en'
   animate: boolean
 }) {
+  const valueRef = useValueFlash<HTMLSpanElement>(value, animate)
+  const changeRef = useValueFlash<HTMLSpanElement>(changePct, animate)
+
   return (
     <div className="key-metrics-bar__item">
       <span className="key-metrics-bar__name">{getKeyMetricDisplayName(name, locale)}</span>
-      <span key={`${name}-${value}`} className={`key-metrics-bar__value ${animate ? 'value-flash' : ''}`}>{value}</span>
-      <span key={`${name}-${changePct}`} className={`key-metrics-bar__chg ${changePct >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+      <span ref={valueRef} className="key-metrics-bar__value">{value}</span>
+      <span ref={changeRef} className={`key-metrics-bar__chg ${changePct >= 0 ? 'up' : 'down'}`}>
         {changePct >= 0 ? '+' : ''}{changePct}%
       </span>
     </div>
   )
-}
+})
 
 export function KeyMetricsBar() {
   const { locale, t } = useLocale()

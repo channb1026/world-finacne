@@ -1,8 +1,10 @@
+import { memo } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData } from '../state/DataContext'
+import { useValueFlash } from '../hooks/useValueFlash'
 import { formatLastUpdated } from '../utils/format'
 
-function FXRow({
+const FXRow = memo(function FXRow({
   pair,
   rate,
   change,
@@ -15,19 +17,22 @@ function FXRow({
   changePct: number
   animate: boolean
 }) {
-  const rateKey = `${pair}-${rate}`
-  const changeKey = `${pair}-${change}`
+  const rateRef = useValueFlash<HTMLSpanElement>(rate, animate)
+  const changeRef = useValueFlash<HTMLSpanElement>(`${change}-${changePct}`, animate)
+
+  const heat = Math.min(Math.abs(changePct) / 3, 1)
+  const heatColor = change >= 0 ? `rgba(63,185,80,${heat * 0.06})` : `rgba(248,81,73,${heat * 0.06})`
 
   return (
-    <div className="fx-row">
+    <div className="fx-row" style={{ background: heatColor }}>
       <span className="fx-pair">{pair}</span>
-      <span key={rateKey} className={`fx-rate ${animate ? 'value-flash' : ''}`}>{rate.toFixed(4)}</span>
-      <span key={changeKey} className={`fx-change ${change >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+      <span ref={rateRef} className="fx-rate">{rate.toFixed(4)}</span>
+      <span ref={changeRef} className={`fx-change ${change >= 0 ? 'up' : 'down'}`}>
         {change >= 0 ? '+' : ''}{change.toFixed(4)} ({changePct >= 0 ? '+' : ''}{changePct}%)
       </span>
     </div>
   )
-}
+})
 
 export function FXPanel() {
   const { locale, t } = useLocale()

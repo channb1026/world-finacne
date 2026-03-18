@@ -10,12 +10,16 @@ import {
   markSourceSuccess,
   markSourceFailure,
 } from '../sourceStatus.js'
+import { withTimeout } from '../utils/withTimeout.js'
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 
 const CACHE_MS = 3 * 1000 // 3 秒
 const SNAPSHOT_TIMEOUT_MS = 8 * 1000
+const FRANKFURTER_TIMEOUT_MS = 8 * 1000
 const CALENDAR_CACHE_MS = 45 * 1000
+const CALENDAR_SOURCE_TIMEOUT_MS = 10 * 1000
+const CALENDAR_REFRESH_TIMEOUT_MS = 15 * 1000
 const CALENDAR_API_BASE = 'https://api.tradingeconomics.com/calendar'
 const CALENDAR_DEFAULT_LIMIT = 8
 const CALENDAR_EODHD_BASE = 'https://eodhd.com/api/economic-events'
@@ -66,16 +70,6 @@ function round(v, digits = 4) {
   return Math.round(v * Math.pow(10, digits)) / Math.pow(10, digits)
 }
 
-function withTimeout(promise, ms, label) {
-  let timer = null
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-  })
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timer) clearTimeout(timer)
-  })
-}
-
 function isMarketCircuitOpen() {
   return Date.now() < marketCircuit.openUntil
 }
@@ -103,7 +97,11 @@ async function quoteMulti(symbols) {
 async function ensureSnapshot() {
   if (!isStale()) return
   if (refreshPromise) {
-    await refreshPromise
+    try {
+      await refreshPromise
+    } catch {
+      // 刷新链路内部已经记录过日志；共享等待方只需要尽快返回旧快照。
+    }
     return
   }
   if (isMarketCircuitOpen()) {
@@ -141,7 +139,8 @@ export function startMarketBackgroundRefresh() {
 async function fetchRatesFrankfurter() {
   try {
     const res = await fetch(
-      'https://api.frankfurter.app/latest?base=USD&symbols=CNY,EUR,JPY,GBP,HKD,AUD,CAD'
+      'https://api.frankfurter.app/latest?base=USD&symbols=CNY,EUR,JPY,GBP,HKD,AUD,CAD',
+      { signal: AbortSignal.timeout(FRANKFURTER_TIMEOUT_MS) },
     )
     if (!res.ok) throw new Error(`Frankfurter ${res.status}`)
     const json = await res.json()
@@ -201,8 +200,6 @@ export async function getRates() {
 }
 
 const STOCK_SYMBOLS = [
-  { symbol: '000001.SS', name: '上证指数' },
-  { symbol: '399001.SZ', name: '深证成指' },
   { symbol: '^HSI', name: '恒生指数' },
   { symbol: '^DJI', name: '道琼斯' },
   { symbol: '^IXIC', name: '纳斯达克' },
@@ -211,8 +208,6 @@ const STOCK_SYMBOLS = [
   { symbol: '^GDAXI', name: '德国 DAX' },
   { symbol: '^FTSE', name: '富时 100' },
   { symbol: '^FCHI', name: '法国 CAC40' },
-  { symbol: '^KS11', name: '韩国综指' },
-  { symbol: '^BSESN', name: '印度 Sensex' },
 ]
 
 export async function getStocks() {
@@ -314,6 +309,26 @@ export async function getRatesPanel() {
 const calendarCacheByLang = new Map()
 const calendarRefreshByLang = new Map()
 
+const CALENDAR_CIRCUIT_BASE_MS = 30 * 1000
+const CALENDAR_CIRCUIT_MAX_MS = 5 * 60 * 1000
+const calendarCircuitBySource = new Map()
+
+function isCalendarCircuitOpen(source) {
+  const c = calendarCircuitBySource.get(source)
+  return c ? Date.now() < c.openUntil : false
+}
+
+function recordCalendarCircuitFailure(source) {
+  const prev = calendarCircuitBySource.get(source) || { failures: 0, openUntil: 0 }
+  const failures = prev.failures + 1
+  const backoffMs = Math.min(CALENDAR_CIRCUIT_MAX_MS, CALENDAR_CIRCUIT_BASE_MS * Math.pow(2, failures - 1))
+  calendarCircuitBySource.set(source, { failures, openUntil: Date.now() + backoffMs })
+}
+
+function recordCalendarCircuitSuccess(source) {
+  calendarCircuitBySource.delete(source)
+}
+
 function getCalendarCredentials() {
   return process.env.TRADING_ECONOMICS_API_KEY ?? 'guest:guest'
 }
@@ -372,20 +387,32 @@ function rankCalendarItem(item, nowMs) {
 async function refreshCalendar(lang) {
   let lastError = null
 
-  try {
-    await refreshCalendarFromTradingEconomics(lang)
-    return
-  } catch (err) {
-    lastError = err
-    markSourceFailure('calendar:tradingeconomics', err)
+  if (!isCalendarCircuitOpen('tradingeconomics')) {
+    try {
+      await refreshCalendarFromTradingEconomics(lang)
+      recordCalendarCircuitSuccess('tradingeconomics')
+      return
+    } catch (err) {
+      lastError = err
+      recordCalendarCircuitFailure('tradingeconomics')
+      markSourceFailure('calendar:tradingeconomics', err)
+    }
   }
 
-  try {
-    await refreshCalendarFromEodhd(lang)
-  } catch (err) {
-    markSourceFailure('calendar:eodhd', err)
-    throw lastError || err
+  if (!isCalendarCircuitOpen('eodhd')) {
+    try {
+      await refreshCalendarFromEodhd(lang)
+      recordCalendarCircuitSuccess('eodhd')
+      return
+    } catch (err) {
+      recordCalendarCircuitFailure('eodhd')
+      markSourceFailure('calendar:eodhd', err)
+      throw lastError || err
+    }
   }
+
+  if (lastError) throw lastError
+  throw new Error('All calendar sources circuit-open')
 }
 
 async function refreshCalendarFromTradingEconomics(lang) {
@@ -395,6 +422,7 @@ async function refreshCalendarFromTradingEconomics(lang) {
   url.searchParams.set('lang', getCalendarLanguage(lang))
 
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(CALENDAR_SOURCE_TIMEOUT_MS),
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'world-finance-monitor/1.0',
@@ -437,6 +465,7 @@ async function refreshCalendarFromEodhd(lang) {
   url.searchParams.set('lang', getCalendarLanguage(lang))
 
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(CALENDAR_SOURCE_TIMEOUT_MS),
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'world-finance-monitor/1.0',
@@ -478,7 +507,7 @@ async function ensureCalendar(lang) {
     return
   }
 
-  const refreshPromise = refreshCalendar(lang)
+  const refreshPromise = withTimeout(refreshCalendar(lang), CALENDAR_REFRESH_TIMEOUT_MS, `calendar(${lang})`)
     .catch((err) => {
       console.warn('[market] calendar refresh failed:', err.message)
     })

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'url'
 import { registerNewsRoutes } from './routes/news.js'
 import { registerMarketRoutes } from './routes/market.js'
 import { startMarketBackgroundRefresh } from './services/marketService.js'
-import { startNewsBackgroundRefresh } from './services/newsService.js'
+import { destroyNewsResources, startNewsBackgroundRefresh } from './services/newsService.js'
 import { createCorsOptions, createRateLimiter } from './security.js'
 import { getSourceStatuses } from './sourceStatus.js'
 
@@ -19,8 +19,10 @@ export function createApp({ startBackgroundRefresh = true } = {}) {
   registerMarketRoutes(app)
 
   if (startBackgroundRefresh) {
-    startMarketBackgroundRefresh()
-    startNewsBackgroundRefresh()
+    app.locals.backgroundRefresh = {
+      marketTimer: startMarketBackgroundRefresh(),
+      newsTimer: startNewsBackgroundRefresh(),
+    }
   }
 
   app.get('/api/health', (_req, res) => {
@@ -43,6 +45,7 @@ const entryHref = process.argv[1] ? pathToFileURL(process.argv[1]).href : ''
 if (import.meta.url === entryHref) {
   const app = createApp()
   const PORT = process.env.PORT ?? 3000
+  const backgroundRefresh = app.locals.backgroundRefresh ?? null
 
   const server = app.listen(PORT, () => {
     console.log(`Backend API http://localhost:${PORT} (GET /api/health, /api/news, /api/map-spots, /api/rates, ... /api/calendar)`)
@@ -54,9 +57,16 @@ if (import.meta.url === entryHref) {
 
   const shutdown = (signal) => {
     console.log(`[process] ${signal} received, shutting down...`)
+    if (backgroundRefresh?.marketTimer) clearInterval(backgroundRefresh.marketTimer)
+    if (backgroundRefresh?.newsTimer) clearInterval(backgroundRefresh.newsTimer)
+    destroyNewsResources()
     server.close(() => {
       process.exit(0)
     })
+    setTimeout(() => {
+      console.error('[process] Forceful shutdown after 10s timeout')
+      process.exit(1)
+    }, 10_000).unref()
   }
 
   process.on('SIGINT', () => shutdown('SIGINT'))

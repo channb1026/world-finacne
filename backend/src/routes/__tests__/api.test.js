@@ -152,6 +152,22 @@ describe('api routes', () => {
     expect(res.body.news.mapSpots).toEqual([])
   })
 
+  it('GET /api/dashboard?scope=market only loads market sections', async () => {
+    const { app, routes } = createAppHarness()
+    registerMarketRoutes(app)
+    const res = createRes()
+
+    await routes['/api/dashboard']({ query: { scope: 'market' } }, res)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body.market.rates).toHaveLength(1)
+    expect(res.body.news.news).toEqual([])
+    expect(mockHotNews).not.toHaveBeenCalled()
+    expect(mockTickerTitles).not.toHaveBeenCalled()
+    expect(mockMapSpots).not.toHaveBeenCalled()
+    expect(mockAShareNews).not.toHaveBeenCalled()
+  })
+
   it('GET /api/news falls back to hotNews when region is absent', async () => {
     const { app, routes } = createAppHarness()
     registerNewsRoutes(app)

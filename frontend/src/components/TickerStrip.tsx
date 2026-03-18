@@ -32,7 +32,8 @@ export function TickerStrip() {
             ticker.map((item) => ({ item, loopIndex }))
           ).map(({ item, loopIndex }) => {
             const href = isSafeLink(item.link) ? item.link : undefined
-            const itemKey = `${loopIndex}-${item.link || item.title}`
+            const idx = ticker.indexOf(item)
+            const itemKey = `${loopIndex}-${idx}-${item.link || item.title}`
             return (
               <span key={itemKey} className="ticker-strip__item">
                 {href ? (

@@ -21,47 +21,48 @@ function getSettledValue(result, fallback) {
 }
 
 export function registerMarketRoutes(app) {
-  app.get('/api/dashboard', async (_req, res) => {
+  app.get('/api/dashboard', async (req, res) => {
     try {
-      const [
-        ratesData,
-        ratesPanelData,
-        stocksData,
-        keyMetricsData,
-        commoditiesData,
-        aShareIndicesData,
-        newsData,
-        tickerData,
-        mapSpotsData,
-        aShareNewsData,
-      ] = await Promise.allSettled([
-        rates(),
-        ratesPanel(),
-        stocks(),
-        keyMetrics(),
-        commodities(),
-        aShareIndices(),
-        hotNews(),
-        tickerTitles(),
-        mapSpots(),
-        aShareNews(),
+      const requestedScope = req?.query?.scope
+      const scope = requestedScope === 'market' || requestedScope === 'news'
+        ? requestedScope
+        : 'all'
+      const [marketResults, newsResults] = await Promise.all([
+        scope === 'news'
+          ? null
+          : Promise.allSettled([
+              rates(),
+              ratesPanel(),
+              stocks(),
+              keyMetrics(),
+              commodities(),
+              aShareIndices(),
+            ]),
+        scope === 'market'
+          ? null
+          : Promise.allSettled([
+              hotNews(),
+              tickerTitles(),
+              mapSpots(),
+              aShareNews(),
+            ]),
       ])
 
       res.set(cacheHeader(Math.max(CACHE_MARKET_SEC, CACHE_NEWS_SEC)))
       res.json({
         market: {
-          rates: getSettledValue(ratesData, []),
-          ratesPanel: getSettledValue(ratesPanelData, []),
-          stocks: getSettledValue(stocksData, []),
-          keyMetrics: getSettledValue(keyMetricsData, []),
-          commodities: getSettledValue(commoditiesData, []),
-          aShareIndices: getSettledValue(aShareIndicesData, []),
+          rates: getSettledValue(marketResults?.[0] ?? { status: 'rejected' }, []),
+          ratesPanel: getSettledValue(marketResults?.[1] ?? { status: 'rejected' }, []),
+          stocks: getSettledValue(marketResults?.[2] ?? { status: 'rejected' }, []),
+          keyMetrics: getSettledValue(marketResults?.[3] ?? { status: 'rejected' }, []),
+          commodities: getSettledValue(marketResults?.[4] ?? { status: 'rejected' }, []),
+          aShareIndices: getSettledValue(marketResults?.[5] ?? { status: 'rejected' }, []),
         },
         news: {
-          news: getSettledValue(newsData, []),
-          ticker: getSettledValue(tickerData, []),
-          mapSpots: getSettledValue(mapSpotsData, []),
-          aShareNews: getSettledValue(aShareNewsData, []),
+          news: getSettledValue(newsResults?.[0] ?? { status: 'rejected' }, []),
+          ticker: getSettledValue(newsResults?.[1] ?? { status: 'rejected' }, []),
+          mapSpots: getSettledValue(newsResults?.[2] ?? { status: 'rejected' }, []),
+          aShareNews: getSettledValue(newsResults?.[3] ?? { status: 'rejected' }, []),
         },
       })
     } catch (err) {

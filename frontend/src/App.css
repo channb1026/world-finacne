@@ -1,1 +1,22 @@
 /* 作战室主布局由 index.css 定义 */
+
+.app-error-boundary {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  background: #0a0e14;
+  color: #e6edf3;
+}
+
+.app-error-boundary__title {
+  font-size: 20px;
+  color: #f85149;
+}
+
+.app-error-boundary__text {
+  font-size: 14px;
+  color: #8b949e;
+}

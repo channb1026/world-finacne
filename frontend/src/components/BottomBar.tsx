@@ -56,9 +56,10 @@ export function BottomBar() {
   }, [])
 
   useEffect(() => {
+    if (!isVisible) return
     const intervalId = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(intervalId)
-  }, [])
+  }, [isVisible])
 
   useEffect(() => {
     const runLoad = async () => {
@@ -124,13 +125,13 @@ export function BottomBar() {
             type="button"
             className="bottom-bar__copy-link"
             onClick={() => {
-              navigator.clipboard.writeText(window.location.href)
-                .then(() => {
+              navigator.clipboard?.writeText(window.location.href)
+                ?.then(() => {
                   setCopied(true)
                   if (copyResetRef.current) clearTimeout(copyResetRef.current)
                   copyResetRef.current = setTimeout(() => setCopied(false), 1600)
                 })
-                .catch(() => {})
+                ?.catch(() => {})
             }}
           >
             {copied ? t('bottomBar.copied') : t('bottomBar.copyViewLink')}
@@ -147,10 +148,12 @@ export function BottomBar() {
             const forecast = formatCalendarMeta(locale === 'zh' ? '预 ' : 'F ', e.forecast)
             const previous = formatCalendarMeta(locale === 'zh' ? '前 ' : 'P ', e.previous)
             const metrics = [actual, forecast, previous].filter(Boolean).join(' · ')
-            const importance = e.importance > 0 ? ' !'.repeat(e.importance) : ''
+            const clampedImportance = Math.min(e.importance, 3)
+            const importance = clampedImportance > 0 ? ' !'.repeat(clampedImportance) : ''
+            const isImportant = clampedImportance >= 2
 
             return (
-              <span key={e.id} className="bottom-bar__event" title={`${e.country} · ${e.event}`}>
+              <span key={e.id} className={`bottom-bar__event${isImportant ? ' bottom-bar__event--important' : ''}`} title={`${e.country} · ${e.event}`}>
                 {formatCalendarDateTime(e.dateTime, locale)} {e.country} {e.event}{importance}
                 {metrics ? ` · ${metrics}` : ''}
               </span>

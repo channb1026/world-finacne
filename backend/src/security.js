@@ -53,6 +53,15 @@ export function createRateLimiter({
   now = () => Date.now(),
 } = {}) {
   const buckets = new Map()
+  let cleanupCounter = 0
+
+  function cleanupExpired(currentTime) {
+    for (const [bucketKey, value] of buckets.entries()) {
+      if (currentTime >= value.resetAt) {
+        buckets.delete(bucketKey)
+      }
+    }
+  }
 
   return function rateLimiter(req, res, next) {
     if (req.method === 'OPTIONS' || req.path === '/api/health') {
@@ -82,12 +91,10 @@ export function createRateLimiter({
       return
     }
 
-    if (buckets.size > 5000) {
-      for (const [bucketKey, value] of buckets.entries()) {
-        if (currentTime >= value.resetAt) {
-          buckets.delete(bucketKey)
-        }
-      }
+    cleanupCounter += 1
+    if (buckets.size > 5000 || cleanupCounter >= 256) {
+      cleanupExpired(currentTime)
+      cleanupCounter = 0
     }
 
     next()

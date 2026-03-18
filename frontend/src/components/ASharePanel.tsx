@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData, useNewsData } from '../state/DataContext'
 import { getAShareIndexDisplayName, getMarketScopeDisplay, getNewsCategoryDisplay } from '../i18n/displayNames'
@@ -8,8 +8,9 @@ import { buildLeadSummary, summarizeScopeMix, summarizeThemeMix } from '../utils
 import { filterNewsByWindow, type TimeWindowKey } from '../utils/newsTimeWindow'
 import { summarizeNewsTimeline } from '../utils/newsTimeline'
 import { formatLastUpdated } from '../utils/format'
+import { useValueFlash } from '../hooks/useValueFlash'
 
-function AShareIndexRow({
+const AShareIndexRow = memo(function AShareIndexRow({
   name,
   symbol,
   value,
@@ -26,23 +27,36 @@ function AShareIndexRow({
   locale: 'zh' | 'en'
   animate: boolean
 }) {
+  const valueRef = useValueFlash<HTMLSpanElement>(value, animate)
+  const changeRef = useValueFlash<HTMLSpanElement>(`${change}-${changePct}`, animate)
+
+  const heat = Math.min(Math.abs(changePct) / 4, 1)
+  const heatColor = changePct >= 0 ? `rgba(63,185,80,${heat * 0.07})` : `rgba(248,81,73,${heat * 0.07})`
+
   return (
-    <div className="a-share-row">
+    <div className="a-share-row" style={{ background: heatColor }}>
       <span className="a-share-row__name">{getAShareIndexDisplayName(name, symbol, locale)}</span>
-      <span key={`${symbol}-${value}`} className={`a-share-row__value ${animate ? 'value-flash' : ''}`}>
+      <span ref={valueRef} className="a-share-row__value">
         {value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
       </span>
-      <span key={`${symbol}-${changePct}`} className={`a-share-row__chg ${changePct >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+      <span ref={changeRef} className={`a-share-row__chg ${changePct >= 0 ? 'up' : 'down'}`}>
         {change >= 0 ? '+' : ''}{change.toFixed(2)} ({changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%)
       </span>
     </div>
   )
-}
+})
 
 export function ASharePanel() {
   const { locale, t } = useLocale()
   const { refreshMarket, refreshNews } = useDataActions()
-  const { aShareIndices, lastUpdated: marketUpdated, error: marketError, loaded: marketLoaded } = useMarketData()
+  const {
+    aShareIndices,
+    keyMetrics,
+    commodities,
+    lastUpdated: marketUpdated,
+    error: marketError,
+    loaded: marketLoaded,
+  } = useMarketData()
   const { aShareNews, lastUpdated: newsUpdated, error: newsError, loaded: newsLoaded } = useNewsData()
   const loadedOnceIndices = marketLoaded.aShareIndices
   const loadedOnceNews = newsLoaded.aShareNews
@@ -66,8 +80,8 @@ export function ASharePanel() {
     : selectedCategory
 
   const rankedNews = useMemo(() => (
-    rankNewsWithMarketContext(aShareNews, { keyMetrics: [], commodities: [], aShareIndices }, locale)
-  ), [aShareIndices, aShareNews, locale])
+    rankNewsWithMarketContext(aShareNews, { keyMetrics, commodities, aShareIndices }, locale)
+  ), [aShareIndices, aShareNews, commodities, keyMetrics, locale])
 
   const windowedNews = useMemo(
     () => filterNewsByWindow(rankedNews.items, selectedWindow),

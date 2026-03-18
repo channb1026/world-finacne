@@ -46,65 +46,14 @@ async function fetchApi<T>(path: string, signal?: AbortSignal): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export async function fetchNews(signal?: AbortSignal): Promise<NewsItem[]> {
-  const data = await fetchApi<NewsItem[]>('/news', signal)
-  return Array.isArray(data) ? data : []
-}
-
 export async function fetchNewsByRegion(region: RegionId, signal?: AbortSignal): Promise<NewsItem[]> {
   const data = await fetchApi<NewsItem[]>(`/news?region=${region}`, signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchRates(signal?: AbortSignal): Promise<FxPair[]> {
-  const data = await fetchApi<FxPair[]>('/rates', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchRatesPanel(signal?: AbortSignal): Promise<RateItem[]> {
-  const data = await fetchApi<RateItem[]>('/rates-panel', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchStocks(signal?: AbortSignal): Promise<StockIndex[]> {
-  const data = await fetchApi<StockIndex[]>('/stocks', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchKeyMetrics(signal?: AbortSignal): Promise<KeyMetric[]> {
-  const data = await fetchApi<KeyMetric[]>('/key-metrics', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchCommodities(signal?: AbortSignal): Promise<Commodity[]> {
-  const data = await fetchApi<Commodity[]>('/commodities', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchAShareIndices(signal?: AbortSignal): Promise<AShareIndex[]> {
-  const data = await fetchApi<AShareIndex[]>('/a-share/indices', signal)
-  return Array.isArray(data) ? data : []
-}
-
-export async function fetchAShareNews(signal?: AbortSignal): Promise<AShareNewsItem[]> {
-  const data = await fetchApi<AShareNewsItem[]>('/a-share/news', signal)
   return Array.isArray(data) ? data : []
 }
 
 export interface TickerItem {
   title: string
   link?: string
-}
-
-export async function fetchTicker(signal?: AbortSignal): Promise<TickerItem[]> {
-  const data = await fetchApi<TickerItem[]>('/ticker', signal)
-  if (!Array.isArray(data)) return []
-  return data.map((x) => (typeof x === 'string' ? { title: x } : { title: x.title, link: x.link }))
-}
-
-export async function fetchMapSpots(signal?: AbortSignal): Promise<MapSpot[]> {
-  const data = await fetchApi<MapSpot[]>('/map-spots', signal)
-  return Array.isArray(data) ? data : []
 }
 
 export interface CalendarEvent {
@@ -162,8 +111,9 @@ export interface DashboardPayload {
   }
 }
 
-export async function fetchDashboard(signal?: AbortSignal): Promise<DashboardPayload> {
-  const data = await fetchApi<DashboardPayload>('/dashboard', signal)
+export async function fetchDashboard(signal?: AbortSignal, scope: 'all' | 'market' | 'news' = 'all'): Promise<DashboardPayload> {
+  const suffix = scope === 'all' ? '' : `?scope=${scope}`
+  const data = await fetchApi<DashboardPayload>(`/dashboard${suffix}`, signal)
   if (!data || typeof data !== 'object') {
     return {
       market: { rates: [], ratesPanel: [], stocks: [], keyMetrics: [], commodities: [], aShareIndices: [] },

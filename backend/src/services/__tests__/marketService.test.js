@@ -130,6 +130,47 @@ describe('marketService', () => {
     ])
   })
 
+  it('getCalendar 在上游挂起时会超时返回，避免单飞永久阻塞', async () => {
+    fetchMock.mockImplementation((_url, options = {}) => (
+      new Promise((_, reject) => {
+        options.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      })
+    ))
+
+    const { getCalendar } = await import('../marketService.js')
+    const eventsPromise = getCalendar('zh')
+
+    await vi.advanceTimersByTimeAsync(15 * 1000)
+    await expect(eventsPromise).resolves.toEqual([])
+  })
+
+  it('Frankfurter fallback 请求带超时 signal，避免备用源挂死', async () => {
+    yahooQuoteMock.mockImplementation(() => {
+      const list = Array.from({ length: 31 }, (_, index) => ({
+        symbol: index === 0 ? '000001.SS' : `SYM${index}`,
+        regularMarketPrice: 1,
+        regularMarketPreviousClose: 1,
+      }))
+      return list
+    })
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        rates: { CNY: 7.2, EUR: 0.93, JPY: 157, GBP: 0.79, HKD: 7.8, AUD: 1.52, CAD: 1.36 },
+      }),
+    })
+
+    const { getRates } = await import('../marketService.js')
+    await getRates()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('frankfurter.app/latest'),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
   it('snapshot 刷新超时后不会永久卡住后续请求', async () => {
     yahooQuoteMock.mockImplementationOnce(() => new Promise(() => {}))
 

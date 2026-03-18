@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, createContext, useContext } from 'react'
+import { useCallback, useEffect, useMemo, useState, createContext, useContext, memo } from 'react'
 import { MapContainer, Marker, useMap } from 'react-leaflet'
 
 const LAYER_SPOTS_KEY = 'map-layer-spots'
@@ -29,6 +29,7 @@ const MAP_PRESETS = [
   { id: 'mena', center: [26, 45] as [number, number], zoom: 5 },
   { id: 'africa', center: [0, 22] as [number, number], zoom: 4 },
 ]
+const spotIconCache = new Map<string, L.DivIcon>()
 
 function getViewFromUrl(): { center: [number, number]; zoom: number } {
   const p = new URLSearchParams(window.location.search)
@@ -80,26 +81,49 @@ function createSpotIcon(spot: MapSpot, selected: boolean, spotHint: string, disp
   const title = `${displayName} · ${spot.count}${spotHint}`
   return L.divIcon({
     className: 'spot-marker',
-    html: `<div class="spot-pulse ${selected ? 'selected' : ''}" title="${title.replace(/"/g, '&quot;')}"></div>`,
+    html: `<div class="spot-pulse ${selected ? 'selected' : ''}" title="${title.replace(/"/g, '&quot;')}"><span class="spot-pulse__core"></span><span class="spot-pulse__ring"></span></div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   })
 }
 
-function SpotMarkers({
+const SpotMarkers = memo(function SpotMarkers({
   spots,
   selectedId,
   onSpotClick,
   spotHint,
-  getSpotDisplayName,
+  spotDisplayNames,
 }: {
   spots: MapSpot[]
   selectedId: string | null
   onSpotClick: (id: MapSpot['id']) => void
   spotHint: string
-  getSpotDisplayName: (spot: MapSpot) => string
+  spotDisplayNames: Map<MapSpot['id'], string>
 }) {
   const { showSpotsLayer } = useContext(MapLayerContext)
+  const iconsById = useMemo(() => {
+    const nextIcons = new Map<MapSpot['id'], L.DivIcon>()
+    const usedKeys = new Set<string>()
+
+    for (const spot of spots) {
+      const displayName = spotDisplayNames.get(spot.id) || spot.name
+      const cacheKey = `${spot.id}:${spot.count}:${selectedId === spot.id}:${displayName}:${spotHint}`
+      usedKeys.add(cacheKey)
+
+      if (!spotIconCache.has(cacheKey)) {
+        spotIconCache.set(cacheKey, createSpotIcon(spot, selectedId === spot.id, spotHint, displayName))
+      }
+
+      nextIcons.set(spot.id, spotIconCache.get(cacheKey)!)
+    }
+
+    for (const key of spotIconCache.keys()) {
+      if (!usedKeys.has(key)) spotIconCache.delete(key)
+    }
+
+    return nextIcons
+  }, [selectedId, spotDisplayNames, spotHint, spots])
+
   if (!showSpotsLayer) return null
   return (
     <>
@@ -107,7 +131,7 @@ function SpotMarkers({
         <Marker
           key={spot.id}
           position={[spot.lat, spot.lng]}
-          icon={createSpotIcon(spot, selectedId === spot.id, spotHint, getSpotDisplayName(spot))}
+          icon={iconsById.get(spot.id)!}
           eventHandlers={{
             click: () => onSpotClick(spot.id),
           }}
@@ -115,7 +139,7 @@ function SpotMarkers({
       ))}
     </>
   )
-}
+})
 
 /** 区域预设按钮条：置于地图上方，点击后 setView 并同步 URL */
 type Translate = (key: MessageKey) => string
@@ -197,12 +221,19 @@ function MapResizeSync() {
   const map = useMap()
   useEffect(() => {
     const container = map.getContainer()
+    let resizeTimer = 0
+    let initialTimer = 0
     const ro = new ResizeObserver(() => {
-      setTimeout(() => map.invalidateSize(), 50)
+      window.clearTimeout(resizeTimer)
+      resizeTimer = window.setTimeout(() => map.invalidateSize(), 50)
     })
     ro.observe(container)
-    setTimeout(() => map.invalidateSize(), 100)
-    return () => ro.disconnect()
+    initialTimer = window.setTimeout(() => map.invalidateSize(), 100)
+    return () => {
+      ro.disconnect()
+      window.clearTimeout(resizeTimer)
+      window.clearTimeout(initialTimer)
+    }
   }, [map])
   return null
 }
@@ -243,6 +274,11 @@ export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
     [onRegionSelect]
   )
 
+  const spotDisplayNames = useMemo(
+    () => new Map(spots.map((spot) => [spot.id, getRegionDisplayName(spot.id, locale, spot.name)])),
+    [locale, spots],
+  )
+
   const layerContextValue = useMemo(
     () => ({ showSpotsLayer, setShowSpotsLayer }),
     [showSpotsLayer, setShowSpotsLayer]
@@ -270,7 +306,7 @@ export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
           selectedId={selectedRegionId}
           onSpotClick={handleSpotClick}
           spotHint={t('map.spotHint')}
-          getSpotDisplayName={(spot) => getRegionDisplayName(spot.id, locale, spot.name)}
+          spotDisplayNames={spotDisplayNames}
         />
       </MapContainer>
       </MapLayerContext.Provider>

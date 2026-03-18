@@ -1,9 +1,11 @@
+import { memo } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData } from '../state/DataContext'
 import { getStockDisplayName } from '../i18n/displayNames'
+import { useValueFlash } from '../hooks/useValueFlash'
 import { formatLastUpdated } from '../utils/format'
 
-function StockRow({
+const StockRow = memo(function StockRow({
   name,
   symbol,
   value,
@@ -20,16 +22,22 @@ function StockRow({
   locale: 'zh' | 'en'
   animate: boolean
 }) {
+  const valueRef = useValueFlash<HTMLSpanElement>(value, animate)
+  const changeRef = useValueFlash<HTMLSpanElement>(`${change}-${changePct}`, animate)
+
+  const heat = Math.min(Math.abs(changePct) / 4, 1)
+  const heatColor = change >= 0 ? `rgba(63,185,80,${heat * 0.07})` : `rgba(248,81,73,${heat * 0.07})`
+
   return (
-    <div className="stock-row">
+    <div className="stock-row" style={{ background: heatColor }}>
       <span className="stock-name">{getStockDisplayName(name, symbol, locale)}</span>
-      <span key={`${symbol}-${value}`} className={`stock-value ${animate ? 'value-flash' : ''}`}>{value.toLocaleString()}</span>
-      <span key={`${symbol}-${changePct}`} className={`stock-change ${change >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+      <span ref={valueRef} className="stock-value">{value.toLocaleString()}</span>
+      <span ref={changeRef} className={`stock-change ${change >= 0 ? 'up' : 'down'}`}>
         {change >= 0 ? '+' : ''}{changePct.toFixed(2)}%
       </span>
     </div>
   )
-}
+})
 
 export function StocksPanel() {
   const { locale, t } = useLocale()
