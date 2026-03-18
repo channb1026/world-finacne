@@ -44,7 +44,21 @@ if (import.meta.url === entryHref) {
   const app = createApp()
   const PORT = process.env.PORT ?? 3000
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Backend API http://localhost:${PORT} (GET /api/health, /api/news, /api/map-spots, /api/rates, ... /api/calendar)`)
   })
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[process] unhandledRejection:', reason)
+  })
+
+  const shutdown = (signal) => {
+    console.log(`[process] ${signal} received, shutting down...`)
+    server.close(() => {
+      process.exit(0)
+    })
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
 }

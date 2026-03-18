@@ -35,20 +35,26 @@ const MOCK_BY_SYMBOL = {
 }
 
 let yahooQuoteCallCount = 0
+const yahooQuoteMock = vi.fn()
 const fetchMock = vi.fn()
 vi.mock('yahoo-finance2', () => ({
   default: class MockYahooFinance {
     async quote(syms) {
       yahooQuoteCallCount += 1
-      const list = Array.isArray(syms) ? syms : [syms]
-      return list.map((s) => MOCK_BY_SYMBOL[s] ?? { symbol: s, regularMarketPrice: 1, regularMarketPreviousClose: 1 })
+      return yahooQuoteMock(syms)
     }
   },
 }))
 
 describe('marketService', () => {
   beforeEach(() => {
+    vi.resetModules()
     yahooQuoteCallCount = 0
+    yahooQuoteMock.mockReset()
+    yahooQuoteMock.mockImplementation((syms) => {
+      const list = Array.isArray(syms) ? syms : [syms]
+      return list.map((s) => MOCK_BY_SYMBOL[s] ?? { symbol: s, regularMarketPrice: 1, regularMarketPreviousClose: 1 })
+    })
     fetchMock.mockReset()
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(0)
@@ -122,5 +128,35 @@ describe('marketService', () => {
         currency: 'USD',
       },
     ])
+  })
+
+  it('snapshot 刷新超时后不会永久卡住后续请求', async () => {
+    yahooQuoteMock.mockImplementationOnce(() => new Promise(() => {}))
+
+    const market = await import('../marketService.js')
+    const ratesPromise = market.getRates()
+    await vi.advanceTimersByTimeAsync(8 * 1000)
+    await expect(ratesPromise).resolves.toEqual([])
+
+    await vi.advanceTimersByTimeAsync(15 * 1000)
+    const stocks = await market.getStocks()
+    expect(Array.isArray(stocks)).toBe(true)
+    expect(yahooQuoteCallCount).toBe(2)
+  })
+
+  it('snapshot 失败后会进入短暂退避，避免立即重试 Yahoo', async () => {
+    yahooQuoteMock.mockRejectedValueOnce(new Error('yahoo down'))
+
+    const market = await import('../marketService.js')
+    const first = await market.getRates()
+    const second = await market.getRates()
+
+    expect(first).toEqual([])
+    expect(second).toEqual([])
+    expect(yahooQuoteCallCount).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(15 * 1000)
+    await market.getRates()
+    expect(yahooQuoteCallCount).toBe(2)
   })
 })

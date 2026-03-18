@@ -29,6 +29,8 @@ const parser = new Parser({
   },
   requestOptions: { agent: httpsAgent },
 })
+const NEWS_REFRESH_TIMEOUT_MS = 35 * 1000
+const NEWS_FEED_CONCURRENCY = 8
 
 // 地图按国家/地区划分：台湾、香港、澳门、美加、日韩俄、印度泰国、东欧西欧、中东、南美等
 const REGIONS = [
@@ -344,6 +346,32 @@ const CIRCUIT_FAILURE_THRESHOLD = 3
 const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 分钟
 const circuitByUrl = new Map() // url -> { failures, lastAttempt }
 
+function withTimeout(promise, ms, label) {
+  let timer = null
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++
+      results[currentIndex] = await worker(items[currentIndex], currentIndex)
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => runWorker())
+  await Promise.all(workers)
+  return results
+}
+
 function isCircuitOpen(url) {
   const state = circuitByUrl.get(url)
   if (!state) return false
@@ -605,8 +633,7 @@ async function refreshCache() {
   REGIONS.forEach((r) => { byRegion[r] = [] })
 
   const breakingItemsBySource = {}
-  await Promise.all(
-    RSS_FEEDS.map(async (f) => {
+  await mapWithConcurrency(RSS_FEEDS, NEWS_FEED_CONCURRENCY, async (f) => {
       if (isCircuitOpen(f.url)) {
         return { items: [], source: f.source, failed: false }
       }
@@ -631,7 +658,6 @@ async function refreshCache() {
         }
       })
     })
-  )
 
   if (failedSources.length) {
     const unique = [...new Set(failedSources)]
@@ -738,7 +764,7 @@ async function ensureCache() {
   }
   refreshPromise = (async () => {
     try {
-      await refreshCache()
+      await withTimeout(refreshCache(), NEWS_REFRESH_TIMEOUT_MS, 'news refresh')
     } catch (err) {
       console.warn('[news] ensureCache refresh failed:', err?.message || err)
     } finally {
@@ -755,7 +781,7 @@ async function ensureCache() {
 /** 后台定时预刷新：每 CACHE_MS 主动刷新缓存，请求只读内存 */
 export function startNewsBackgroundRefresh() {
   ensureCache().catch(() => {})
-  setInterval(() => ensureCache().catch(() => {}), CACHE_MS)
+  return setInterval(() => ensureCache().catch(() => {}), CACHE_MS)
 }
 
 /** 热点财经：返回原文来源，由前端按界面语言展示中文/英文 */

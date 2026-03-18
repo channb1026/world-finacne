@@ -4,7 +4,7 @@
 
 export type Locale = 'zh' | 'en'
 
-export const messages: Record<string, { zh: string; en: string }> = {
+export const messages = {
   'common.loading': { zh: '加载中…', en: 'Loading…' },
   'common.loadFailed': { zh: '加载失败', en: 'Load failed' },
   'common.noData': { zh: '暂无数据', en: 'No data' },
@@ -100,9 +100,11 @@ export const messages: Record<string, { zh: string; en: string }> = {
 
   'locale.zh': { zh: '中文', en: '中文' },
   'locale.en': { zh: 'English', en: 'English' },
-}
+} satisfies Record<string, { zh: string; en: string }>
 
-export function getMessage(key: string, locale: Locale): string {
+export type MessageKey = keyof typeof messages
+
+export function getMessage(key: MessageKey, locale: Locale): string {
   const entry = messages[key]
   if (!entry) return key
   return entry[locale] ?? entry.zh

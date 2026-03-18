@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
+import type { MessageKey } from '../i18n/translations'
 import { useDataActions, useSourceHealth } from '../state/DataContext'
 
 function formatTimestamp(date: Date | null, locale: 'zh' | 'en') {
@@ -28,14 +29,16 @@ function formatRelative(dateString: string | null, locale: 'zh' | 'en') {
 const CATEGORY_ORDER = ['market', 'calendar', 'news']
 const FILTERS = ['all', 'market', 'calendar', 'news'] as const
 type FilterKey = (typeof FILTERS)[number]
+type CategoryKey = typeof CATEGORY_ORDER[number]
+type Translate = (key: MessageKey) => string
 
-function getFilterLabel(filter: FilterKey, t: (key: string) => string) {
+function getFilterLabel(filter: FilterKey, t: Translate) {
   if (filter === 'all') return t('sourceHealth.filterAll')
-  return t(`sourceHealth.filter.${filter}`)
+  return t(`sourceHealth.filter.${filter}` as MessageKey)
 }
 
-function getCategoryLabel(category: string, t: (key: string) => string) {
-  return t(`sourceHealth.filter.${category}`)
+function getCategoryLabel(category: CategoryKey, t: Translate) {
+  return t(`sourceHealth.filter.${category}` as MessageKey)
 }
 
 export function SourceHealthPanel() {
@@ -98,7 +101,7 @@ export function SourceHealthPanel() {
   const grouped = useMemo(() => {
     return CATEGORY_ORDER
       .map((category) => ({
-        category,
+        category: category as CategoryKey,
         items: visibleItems.filter((item) => item.category === category),
       }))
       .filter((group) => group.items.length > 0)

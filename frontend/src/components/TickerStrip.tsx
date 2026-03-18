@@ -28,10 +28,13 @@ export function TickerStrip() {
       <span className="ticker-strip__label">{t('ticker.feed')}</span>
       <div className="ticker-strip__viewport">
         <div className="ticker-strip__track">
-          {[...ticker, ...ticker].map((item, i) => {
+          {[0, 1].flatMap((loopIndex) =>
+            ticker.map((item) => ({ item, loopIndex }))
+          ).map(({ item, loopIndex }) => {
             const href = isSafeLink(item.link) ? item.link : undefined
+            const itemKey = `${loopIndex}-${item.link || item.title}`
             return (
-              <span key={i} className="ticker-strip__item">
+              <span key={itemKey} className="ticker-strip__item">
                 {href ? (
                   <a href={href} target="_blank" rel="noopener noreferrer" className="ticker-strip__link">
                     {item.title}

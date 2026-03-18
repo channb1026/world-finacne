@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AShareNewsItem, NewsItem } from '../data/mock'
+import type { AShareNewsItem, NewsItem } from '../types/data'
 import { useLocale } from '../i18n/LocaleContext'
 import { getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay, getStoryClusterDisplay } from '../i18n/displayNames'
 import { isSafeLink } from '../utils/linkSafety'

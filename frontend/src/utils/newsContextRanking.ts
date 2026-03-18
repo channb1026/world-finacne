@@ -1,4 +1,4 @@
-import type { AShareIndex, Commodity, KeyMetric, NewsItem, AShareNewsItem } from '../data/mock'
+import type { AShareIndex, Commodity, KeyMetric, NewsItem, AShareNewsItem } from '../types/data'
 import type { Locale } from '../i18n/translations'
 
 export interface MarketContextSnapshot {

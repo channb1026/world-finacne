@@ -8,11 +8,12 @@ const MapLayerContext = createContext<{ showSpotsLayer: boolean; setShowSpotsLay
   setShowSpotsLayer: () => {},
 })
 import L from 'leaflet'
-import type { MapSpot } from '../data/mock'
+import type { MapSpot } from '../types/data'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
 import { useNewsData } from '../state/DataContext'
 import { useLocale } from '../i18n/LocaleContext'
 import { getRegionDisplayName } from '../i18n/displayNames'
+import type { MessageKey } from '../i18n/translations'
 import 'leaflet/dist/leaflet.css'
 
 /** 深色底图：Stadia Alidade Smooth Dark；仅请求合法瓦片坐标，避免 404 */
@@ -117,7 +118,9 @@ function SpotMarkers({
 }
 
 /** 区域预设按钮条：置于地图上方，点击后 setView 并同步 URL */
-function MapPresetsBar({ t }: { t: (key: string) => string }) {
+type Translate = (key: MessageKey) => string
+
+function MapPresetsBar({ t }: { t: Translate }) {
   const map = useMap()
   return (
     <div className="map-presets-bar" role="group" aria-label={t('map.ariaPresets')}>
@@ -131,7 +134,7 @@ function MapPresetsBar({ t }: { t: (key: string) => string }) {
             updateUrl(L.latLng(preset.center[0], preset.center[1]), preset.zoom)
           }}
         >
-          {t(`map.preset.${preset.id}`)}
+          {t(`map.preset.${preset.id}` as MessageKey)}
         </button>
       ))}
     </div>
@@ -152,7 +155,7 @@ function MapUrlSync() {
 }
 
 /** 图例与图层开关：说明当前图层含义，可勾选显示/隐藏新闻亮点 */
-function MapLegend({ t }: { t: (key: string) => string }) {
+function MapLegend({ t }: { t: Translate }) {
   const { showSpotsLayer, setShowSpotsLayer } = useContext(MapLayerContext)
   return (
     <div className="map-legend" role="group" aria-label={t('map.ariaLegend')}>

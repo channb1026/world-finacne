@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useCallback, useMemo, useState, useEffect } from 'react'
-import type { Locale } from './translations'
+import type { Locale, MessageKey } from './translations'
 import { getMessage } from './translations'
 
 const STORAGE_KEY = 'war-room-locale'
@@ -30,7 +30,7 @@ function loadStoredLocale(): Locale {
 type LocaleContextValue = {
   locale: Locale
   setLocale: (l: Locale) => void
-  t: (key: string) => string
+  t: (key: MessageKey) => string
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null)
@@ -51,7 +51,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const t = useCallback(
-    (key: string) => getMessage(key, locale),
+    (key: MessageKey) => getMessage(key, locale),
     [locale]
   )
 

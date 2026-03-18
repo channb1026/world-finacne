@@ -16,6 +16,10 @@ function cacheHeader(sec) {
   return { 'Cache-Control': `public, max-age=${sec}` }
 }
 
+function getSettledValue(result, fallback) {
+  return result.status === 'fulfilled' ? result.value : fallback
+}
+
 export function registerMarketRoutes(app) {
   app.get('/api/dashboard', async (_req, res) => {
     try {
@@ -30,7 +34,7 @@ export function registerMarketRoutes(app) {
         tickerData,
         mapSpotsData,
         aShareNewsData,
-      ] = await Promise.all([
+      ] = await Promise.allSettled([
         rates(),
         ratesPanel(),
         stocks(),
@@ -46,18 +50,18 @@ export function registerMarketRoutes(app) {
       res.set(cacheHeader(Math.max(CACHE_MARKET_SEC, CACHE_NEWS_SEC)))
       res.json({
         market: {
-          rates: ratesData,
-          ratesPanel: ratesPanelData,
-          stocks: stocksData,
-          keyMetrics: keyMetricsData,
-          commodities: commoditiesData,
-          aShareIndices: aShareIndicesData,
+          rates: getSettledValue(ratesData, []),
+          ratesPanel: getSettledValue(ratesPanelData, []),
+          stocks: getSettledValue(stocksData, []),
+          keyMetrics: getSettledValue(keyMetricsData, []),
+          commodities: getSettledValue(commoditiesData, []),
+          aShareIndices: getSettledValue(aShareIndicesData, []),
         },
         news: {
-          news: newsData,
-          ticker: tickerData,
-          mapSpots: mapSpotsData,
-          aShareNews: aShareNewsData,
+          news: getSettledValue(newsData, []),
+          ticker: getSettledValue(tickerData, []),
+          mapSpots: getSettledValue(mapSpotsData, []),
+          aShareNews: getSettledValue(aShareNewsData, []),
         },
       })
     } catch (err) {
@@ -152,6 +156,7 @@ export function registerMarketRoutes(app) {
       res.set(cacheHeader(CACHE_NEWS_SEC))
       res.json(await calendar(lang))
     } catch (err) {
+      console.warn('[api] /api/calendar error:', err.message)
       res.status(500).json([])
     }
   })

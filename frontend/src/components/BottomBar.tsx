@@ -56,8 +56,8 @@ export function BottomBar() {
   }, [])
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
+    const intervalId = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(intervalId)
   }, [])
 
   useEffect(() => {
@@ -124,11 +124,13 @@ export function BottomBar() {
             type="button"
             className="bottom-bar__copy-link"
             onClick={() => {
-              navigator.clipboard.writeText(window.location.href).then(() => {
-                setCopied(true)
-                if (copyResetRef.current) clearTimeout(copyResetRef.current)
-                copyResetRef.current = setTimeout(() => setCopied(false), 1600)
-              })
+              navigator.clipboard.writeText(window.location.href)
+                .then(() => {
+                  setCopied(true)
+                  if (copyResetRef.current) clearTimeout(copyResetRef.current)
+                  copyResetRef.current = setTimeout(() => setCopied(false), 1600)
+                })
+                .catch(() => {})
             }}
           >
             {copied ? t('bottomBar.copied') : t('bottomBar.copyViewLink')}

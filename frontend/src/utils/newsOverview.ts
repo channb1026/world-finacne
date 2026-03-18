@@ -1,4 +1,4 @@
-import type { AShareNewsItem, NewsItem } from '../data/mock'
+import type { AShareNewsItem, NewsItem } from '../types/data'
 import type { Locale } from '../i18n/translations'
 import type { ActiveSignal } from './newsContextRanking'
 import type { TimelineBucketSummary } from './newsTimeline'

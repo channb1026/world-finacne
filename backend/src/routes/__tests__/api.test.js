@@ -135,6 +135,23 @@ describe('api routes', () => {
     expect(res.body.news.aShareNews).toHaveLength(1)
   })
 
+  it('GET /api/dashboard tolerates partial failures and returns remaining sections', async () => {
+    const { app, routes } = createAppHarness()
+    registerMarketRoutes(app)
+    const res = createRes()
+
+    mockStocks.mockRejectedValue(new Error('stocks failed'))
+    mockMapSpots.mockRejectedValue(new Error('map failed'))
+
+    await routes['/api/dashboard']({}, res)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body.market.rates).toHaveLength(1)
+    expect(res.body.market.stocks).toEqual([])
+    expect(res.body.news.news).toHaveLength(1)
+    expect(res.body.news.mapSpots).toEqual([])
+  })
+
   it('GET /api/news falls back to hotNews when region is absent', async () => {
     const { app, routes } = createAppHarness()
     registerNewsRoutes(app)

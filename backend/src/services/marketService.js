@@ -14,10 +14,13 @@ import {
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 
 const CACHE_MS = 3 * 1000 // 3 秒
+const SNAPSHOT_TIMEOUT_MS = 8 * 1000
 const CALENDAR_CACHE_MS = 45 * 1000
 const CALENDAR_API_BASE = 'https://api.tradingeconomics.com/calendar'
 const CALENDAR_DEFAULT_LIMIT = 8
 const CALENDAR_EODHD_BASE = 'https://eodhd.com/api/economic-events'
+const MARKET_CIRCUIT_BASE_MS = 15 * 1000
+const MARKET_CIRCUIT_MAX_MS = 90 * 1000
 
 registerSource('market:yahoo-finance', {
   name: 'Yahoo Finance',
@@ -52,6 +55,7 @@ const ALL_SYMBOLS = [
 
 let snapshot = { bySymbol: {}, updatedAt: 0 }
 let refreshPromise = null
+let marketCircuit = { failures: 0, openUntil: 0 }
 
 function isStale() {
   return !snapshot.updatedAt || Date.now() - snapshot.updatedAt > CACHE_MS
@@ -62,9 +66,36 @@ function round(v, digits = 4) {
   return Math.round(v * Math.pow(10, digits)) / Math.pow(10, digits)
 }
 
+function withTimeout(promise, ms, label) {
+  let timer = null
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
+function isMarketCircuitOpen() {
+  return Date.now() < marketCircuit.openUntil
+}
+
+function recordMarketCircuitSuccess() {
+  marketCircuit = { failures: 0, openUntil: 0 }
+}
+
+function recordMarketCircuitFailure() {
+  const failures = marketCircuit.failures + 1
+  const backoffMs = Math.min(MARKET_CIRCUIT_MAX_MS, MARKET_CIRCUIT_BASE_MS * failures)
+  marketCircuit = {
+    failures,
+    openUntil: Date.now() + backoffMs,
+  }
+}
+
 async function quoteMulti(symbols) {
   const list = Array.isArray(symbols) ? symbols : [symbols]
-  const quotes = await yf.quote(list)
+  const quotes = await withTimeout(yf.quote(list), SNAPSHOT_TIMEOUT_MS, 'Yahoo Finance quote')
   return Array.isArray(quotes) ? quotes : [quotes]
 }
 
@@ -75,16 +106,21 @@ async function ensureSnapshot() {
     await refreshPromise
     return
   }
+  if (isMarketCircuitOpen()) {
+    return
+  }
   refreshPromise = (async () => {
     try {
       const quotes = await quoteMulti(ALL_SYMBOLS)
       const bySymbol = {}
       quotes.forEach((q) => { if (q?.symbol) bySymbol[q.symbol] = q })
       snapshot = { bySymbol, updatedAt: Date.now() }
+      recordMarketCircuitSuccess()
       markSourceSuccess('market:yahoo-finance', {
         meta: { symbols: ALL_SYMBOLS.length },
       })
     } catch (err) {
+      recordMarketCircuitFailure()
       console.warn('[market] snapshot refresh failed:', err.message)
       markSourceFailure('market:yahoo-finance', err)
       // 不更新 snapshot，保留旧数据
@@ -98,7 +134,7 @@ async function ensureSnapshot() {
 /** 后台定时预刷新：每 CACHE_MS 主动刷新 snapshot，请求只读内存，减少撞上刷新时刻 */
 export function startMarketBackgroundRefresh() {
   ensureSnapshot().catch(() => {})
-  setInterval(() => ensureSnapshot().catch(() => {}), CACHE_MS)
+  return setInterval(() => ensureSnapshot().catch(() => {}), CACHE_MS)
 }
 
 /** Frankfurter 备用：Yahoo 汇率失败时使用 */

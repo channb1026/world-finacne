@@ -9,7 +9,7 @@ import { TickerStrip } from '../components/TickerStrip'
 import { MapSkeleton } from '../components/MapSkeleton'
 import { BottomBar } from '../components/BottomBar'
 import { SourceHealthPanel } from '../components/SourceHealthPanel'
-import type { RegionId } from '../data/mock'
+import type { RegionId } from '../types/data'
 
 const SHOW_SOURCE_HEALTH_PANEL = import.meta.env.VITE_SHOW_SOURCE_HEALTH === 'true'
 
@@ -25,6 +25,10 @@ export function WarRoomView() {
 
   const handleRegionSelect = useCallback((id: RegionId) => {
     setSelectedRegion((prev) => (prev === id ? null : id))
+  }, [])
+
+  const handleRegionClose = useCallback(() => {
+    setSelectedRegion(null)
   }, [])
 
   return (
@@ -48,7 +52,7 @@ export function WarRoomView() {
             <Suspense fallback={null}>
               <RegionDrawer
                 regionId={selectedRegion}
-                onClose={() => setSelectedRegion(null)}
+                onClose={handleRegionClose}
               />
             </Suspense>
           )}

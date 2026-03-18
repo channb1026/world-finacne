@@ -1,4 +1,4 @@
-import type { AShareNewsItem, NewsItem } from '../data/mock'
+import type { AShareNewsItem, NewsItem } from '../types/data'
 
 export type TimeWindowKey = '1h' | '4h' | '24h' | 'all'
 

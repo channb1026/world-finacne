@@ -1,10 +1,6 @@
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData } from '../state/DataContext'
-
-function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
-  const tag = locale === 'en' ? 'en-US' : 'zh-CN'
-  return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
+import { formatLastUpdated } from '../utils/format'
 
 function FXRow({
   pair,

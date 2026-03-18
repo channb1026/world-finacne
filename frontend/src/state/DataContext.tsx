@@ -26,6 +26,8 @@ import {
   fetchAShareNews,
   fetchDashboard,
   fetchSourceHealth,
+  POLL_INTERVAL_MARKET,
+  POLL_INTERVAL_NEWS,
   type DashboardPayload,
   type SourceHealthItem,
 } from '../services/api'
@@ -39,11 +41,11 @@ import type {
   NewsItem,
   MapSpot,
   AShareNewsItem,
-} from '../data/mock'
+} from '../types/data'
 import type { TickerItem } from '../services/api'
 
-const MARKET_MS = 3 * 1000
-const NEWS_MS = 45 * 1000
+const MARKET_MS = POLL_INTERVAL_MARKET
+const NEWS_MS = POLL_INTERVAL_NEWS
 const SOURCE_HEALTH_MS = 60 * 1000
 
 type DataSetter = React.Dispatch<React.SetStateAction<DataState>>
