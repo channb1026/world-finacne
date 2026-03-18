@@ -1,17 +1,48 @@
 import { useLocale } from '../i18n/LocaleContext'
-import { useData } from '../state/DataContext'
+import { useDataActions, useMarketData } from '../state/DataContext'
 import { getCommodityDisplayName, getCommodityUnitDisplay } from '../i18n/displayNames'
-import { useFlashOnChange } from '../hooks/useFlashOnChange'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
   return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function CommodityRow({
+  name,
+  value,
+  unit,
+  changePct,
+  locale,
+  animate,
+}: {
+  name: string
+  value: number
+  unit: string
+  changePct: number
+  locale: 'zh' | 'en'
+  animate: boolean
+}) {
+  const displayValue =
+    typeof value === 'number' && value > 1000 ? value.toLocaleString() : value
+
+  return (
+    <div className="commodity-row">
+      <span className="commodity-row__name">{getCommodityDisplayName(name, locale)}</span>
+      <span key={`${name}-${value}`} className={`commodity-row__value ${animate ? 'value-flash' : ''}`}>
+        {displayValue}
+      </span>
+      <span className="commodity-row__unit">{getCommodityUnitDisplay(unit, locale)}</span>
+      <span key={`${name}-${changePct}`} className={`commodity-row__chg ${changePct >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+        {changePct >= 0 ? '+' : ''}{changePct}%
+      </span>
+    </div>
+  )
+}
+
 export function CommoditiesPanel() {
   const { locale, t } = useLocale()
-  const { data, refreshMarket } = useData()
-  const { commodities, lastUpdated, error, loaded } = data
+  const { refreshMarket } = useDataActions()
+  const { commodities, lastUpdated, error, loaded } = useMarketData()
   const loadedOnce = loaded.commodities
 
   if (commodities.length === 0) {
@@ -33,28 +64,13 @@ export function CommoditiesPanel() {
     <div className="panel">
       <div className="panel__title">
         {t('panel.commodities')}
-        {lastUpdated.market && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated.market, locale)}</span>}
+        {lastUpdated && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>}
       </div>
       <div className="panel__subtitle">{t('panel.mainVarieties')}</div>
       <div>
-      {commodities.map((c) => {
-        const flashValue = useFlashOnChange(c.value, c.name)
-        const flashChange = useFlashOnChange(c.changePct, `${c.name}-chg`)
-        const displayValue =
-          typeof c.value === 'number' && c.value > 1000 ? c.value.toLocaleString() : c.value
-        return (
-          <div key={c.name} className="commodity-row">
-            <span className="commodity-row__name">{getCommodityDisplayName(c.name, locale)}</span>
-            <span className={`commodity-row__value ${flashValue ? 'value-flash' : ''}`}>
-              {displayValue}
-            </span>
-            <span className="commodity-row__unit">{getCommodityUnitDisplay(c.unit, locale)}</span>
-            <span className={`commodity-row__chg ${c.changePct >= 0 ? 'up' : 'down'} ${flashChange ? 'value-flash' : ''}`}>
-              {c.changePct >= 0 ? '+' : ''}{c.changePct}%
-            </span>
-          </div>
-        )
-      })}
+      {commodities.map((c) => (
+        <CommodityRow key={c.name} {...c} locale={locale} animate={loadedOnce} />
+      ))}
       </div>
     </div>
   )

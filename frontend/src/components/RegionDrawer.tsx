@@ -4,8 +4,8 @@ import { MAP_SPOTS_DEFAULT } from '../data/mock'
 import { fetchNewsByRegion } from '../services/api'
 import type { NewsItem } from '../data/mock'
 import { useLocale } from '../i18n/LocaleContext'
-import { useData } from '../state/DataContext'
-import { getRegionDisplayName, getNewsSourceDisplay } from '../i18n/displayNames'
+import { useVisibility } from '../state/DataContext'
+import { getRegionDisplayName, getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay } from '../i18n/displayNames'
 import { isSafeLink } from '../utils/linkSafety'
 
 interface RegionDrawerProps {
@@ -17,26 +17,51 @@ const REGION_POLL_MS = 45 * 1000
 
 export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
   const { t, locale } = useLocale()
-  const { isVisible } = useData()
+  const isVisible = useVisibility()
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!regionId) return
-    const load = () => {
+    const load = async () => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
       setLoading(true)
-      fetchNewsByRegion(regionId)
-        .then((data) => { setNews(data) })
-        .catch(() => setNews([]))
-        .finally(() => setLoading(false))
+      try {
+        const data = await fetchNewsByRegion(regionId, controller.signal)
+        if (!controller.signal.aborted) {
+          setNews(data)
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setNews([])
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
     }
-    load()
+
+    const schedule = () => {
+      if (!isVisible) return
+      timerRef.current = setTimeout(async () => {
+        await load()
+        schedule()
+      }, REGION_POLL_MS)
+    }
+
+    void load()
     if (isVisible) {
-      intervalRef.current = setInterval(load, REGION_POLL_MS)
+      schedule()
     }
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      abortRef.current?.abort()
     }
   }, [regionId, isVisible])
 
@@ -71,10 +96,15 @@ export function RegionDrawer({ regionId, onClose }: RegionDrawerProps) {
                       )}
                     </div>
                     {n.category && (
-                      <span className="news-item__tag" data-category={n.category}>{n.category}</span>
+                      <span className="news-item__tag" data-category={n.category}>
+                        {getNewsCategoryDisplay(n.category, locale)}
+                      </span>
                     )}
                   </div>
-                  <div className="news-item__meta">{getNewsSourceDisplay(n.source, locale)} · {n.time}</div>
+                  <div className="news-item__meta">
+                    {getNewsSourceDisplay(n.source, locale)} · {n.time}
+                    {n.tags && n.tags.length > 0 ? ` · ${n.tags.slice(0, 2).map((tag) => getNewsTagDisplay(tag, locale)).join(' / ')}` : ''}
+                  </div>
                 </div>
               )
             })

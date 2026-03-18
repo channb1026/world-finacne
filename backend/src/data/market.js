@@ -36,6 +36,6 @@ export async function ratesPanel() {
   return getRatesPanel()
 }
 
-export async function calendar() {
-  return getCalendar()
+export async function calendar(lang) {
+  return getCalendar(lang)
 }

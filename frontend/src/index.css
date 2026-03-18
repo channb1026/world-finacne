@@ -289,6 +289,31 @@ html, body, #root {
 .panel__retry:hover {
   background: var(--border);
 }
+.panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.panel__filter-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.panel__filter-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+.panel__filter-btn.is-active {
+  color: var(--text);
+  border-color: var(--glow);
+  background: color-mix(in srgb, var(--glow) 10%, var(--bg-card));
+}
 /* 地图容器：填满中间列剩余高度，保证最小高度以便 Leaflet 正确渲染 */
 .map-wrap {
   flex: 1;
@@ -483,6 +508,7 @@ html, body, #root {
   border-radius: 4px;
   background: var(--border);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .news-item__meta { color: var(--text-muted); font-size: 11px; }
 /* 股市条：名称 | 点位(固定列宽右对齐) | 涨跌(固定列宽右对齐) */
@@ -947,12 +973,19 @@ html, body, #root {
 .a-share-news-item:last-child {
   border-bottom: none;
 }
+.a-share-news-item__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 2px;
+}
 .a-share-news-item__title {
   display: block;
+  flex: 1;
+  min-width: 0;
   font-weight: normal;
   color: var(--text);
   line-height: 1.35;
-  margin-bottom: 2px;
 }
 .a-share-news-item__link {
   display: block;
@@ -965,4 +998,138 @@ html, body, #root {
   font-size: 10px;
   font-weight: normal;
   color: var(--text-muted);
+}
+.source-health-panel {
+  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+}
+.source-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.source-health-list::-webkit-scrollbar {
+  display: none;
+}
+.source-health-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.source-health-toolbar__btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.source-health-toolbar__btn.is-active {
+  color: var(--text);
+  border-color: var(--glow);
+  background: color-mix(in srgb, var(--glow) 12%, var(--bg-card));
+}
+.source-health-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.source-health-alert {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.source-health-alert--critical {
+  background: color-mix(in srgb, var(--down) 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--down) 35%, var(--border));
+  color: var(--text);
+}
+.source-health-alert--warning {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--text);
+}
+.source-health-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.source-health-group__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.source-health-group__summary {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.source-health-row {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 6px;
+}
+.source-health-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.source-health-row__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.source-health-row__dot.is-up {
+  background: var(--up);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--up) 70%, transparent);
+}
+.source-health-row__dot.is-down {
+  background: var(--down);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--down) 70%, transparent);
+}
+.source-health-row__dot.is-unknown {
+  background: var(--text-muted);
+}
+.source-health-row__name {
+  color: var(--text);
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-health-row__category {
+  margin-left: auto;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+}
+.source-health-row__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
 }

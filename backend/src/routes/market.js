@@ -148,8 +148,9 @@ export function registerMarketRoutes(app) {
 
   app.get('/api/calendar', async (_req, res) => {
     try {
+      const lang = _req.query.lang === 'zh' ? 'zh' : 'en'
       res.set(cacheHeader(CACHE_NEWS_SEC))
-      res.json(await calendar())
+      res.json(await calendar(lang))
     } catch (err) {
       res.status(500).json([])
     }

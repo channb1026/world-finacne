@@ -5,10 +5,40 @@
  */
 
 import YahooFinance from 'yahoo-finance2'
+import {
+  registerSource,
+  markSourceSuccess,
+  markSourceFailure,
+} from '../sourceStatus.js'
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 
 const CACHE_MS = 3 * 1000 // 3 秒
+const CALENDAR_CACHE_MS = 45 * 1000
+const CALENDAR_API_BASE = 'https://api.tradingeconomics.com/calendar'
+const CALENDAR_DEFAULT_LIMIT = 8
+const CALENDAR_EODHD_BASE = 'https://eodhd.com/api/economic-events'
+
+registerSource('market:yahoo-finance', {
+  name: 'Yahoo Finance',
+  category: 'market',
+  meta: { role: 'primary quotes' },
+})
+registerSource('market:frankfurter', {
+  name: 'Frankfurter',
+  category: 'market',
+  meta: { role: 'fx fallback' },
+})
+registerSource('calendar:tradingeconomics', {
+  name: 'Trading Economics',
+  category: 'calendar',
+  meta: { role: 'primary calendar' },
+})
+registerSource('calendar:eodhd', {
+  name: 'EODHD Economic Events',
+  category: 'calendar',
+  meta: { role: 'calendar fallback' },
+})
 
 /** 全量 symbol 集合（去重），一次请求拉取所有行情 */
 const ALL_SYMBOLS = [
@@ -51,8 +81,12 @@ async function ensureSnapshot() {
       const bySymbol = {}
       quotes.forEach((q) => { if (q?.symbol) bySymbol[q.symbol] = q })
       snapshot = { bySymbol, updatedAt: Date.now() }
+      markSourceSuccess('market:yahoo-finance', {
+        meta: { symbols: ALL_SYMBOLS.length },
+      })
     } catch (err) {
       console.warn('[market] snapshot refresh failed:', err.message)
+      markSourceFailure('market:yahoo-finance', err)
       // 不更新 snapshot，保留旧数据
     } finally {
       refreshPromise = null
@@ -69,29 +103,35 @@ export function startMarketBackgroundRefresh() {
 
 /** Frankfurter 备用：Yahoo 汇率失败时使用 */
 async function fetchRatesFrankfurter() {
-  const res = await fetch(
-    'https://api.frankfurter.app/latest?base=USD&symbols=CNY,EUR,JPY,GBP,HKD,AUD,CAD'
-  )
-  if (!res.ok) throw new Error(`Frankfurter ${res.status}`)
-  const json = await res.json()
-  const rates = json?.rates
-  if (!rates || typeof rates.CNY !== 'number') throw new Error('Frankfurter invalid response')
-  const usdCny = rates.CNY
-  const pairMap = [
-    ['USD/CNY', usdCny],
-    ['EUR/CNY', rates.EUR ? round(usdCny / rates.EUR, 4) : 0],
-    ['JPY/CNY', rates.JPY ? round(usdCny / rates.JPY, 4) : 0],
-    ['GBP/CNY', rates.GBP ? round(usdCny / rates.GBP, 4) : 0],
-    ['HKD/CNY', rates.HKD ? round(usdCny / rates.HKD, 4) : 0],
-    ['AUD/CNY', rates.AUD ? round(usdCny / rates.AUD, 4) : 0],
-    ['CAD/CNY', rates.CAD ? round(usdCny / rates.CAD, 4) : 0],
-  ]
-  return pairMap.filter(([, r]) => r > 0).map(([pair, rate]) => ({
-    pair,
-    rate,
-    change: 0,
-    changePct: 0,
-  }))
+  try {
+    const res = await fetch(
+      'https://api.frankfurter.app/latest?base=USD&symbols=CNY,EUR,JPY,GBP,HKD,AUD,CAD'
+    )
+    if (!res.ok) throw new Error(`Frankfurter ${res.status}`)
+    const json = await res.json()
+    const rates = json?.rates
+    if (!rates || typeof rates.CNY !== 'number') throw new Error('Frankfurter invalid response')
+    const usdCny = rates.CNY
+    const pairMap = [
+      ['USD/CNY', usdCny],
+      ['EUR/CNY', rates.EUR ? round(usdCny / rates.EUR, 4) : 0],
+      ['JPY/CNY', rates.JPY ? round(usdCny / rates.JPY, 4) : 0],
+      ['GBP/CNY', rates.GBP ? round(usdCny / rates.GBP, 4) : 0],
+      ['HKD/CNY', rates.HKD ? round(usdCny / rates.HKD, 4) : 0],
+      ['AUD/CNY', rates.AUD ? round(usdCny / rates.AUD, 4) : 0],
+      ['CAD/CNY', rates.CAD ? round(usdCny / rates.CAD, 4) : 0],
+    ]
+    markSourceSuccess('market:frankfurter')
+    return pairMap.filter(([, r]) => r > 0).map(([pair, rate]) => ({
+      pair,
+      rate,
+      change: 0,
+      changePct: 0,
+    }))
+  } catch (err) {
+    markSourceFailure('market:frankfurter', err)
+    throw err
+  }
 }
 
 const RATE_SYMBOLS = ['USDCNY=X', 'EURCNY=X', 'JPYCNY=X', 'GBPCNY=X', 'HKDCNY=X', 'AUDCNY=X', 'CADCNY=X']
@@ -235,6 +275,188 @@ export async function getRatesPanel() {
   ]
 }
 
-export async function getCalendar() {
-  return []
+const calendarCacheByLang = new Map()
+const calendarRefreshByLang = new Map()
+
+function getCalendarCredentials() {
+  return process.env.TRADING_ECONOMICS_API_KEY ?? 'guest:guest'
+}
+
+function getEodhdToken() {
+  return process.env.EODHD_API_TOKEN ?? 'demo'
+}
+
+function getCalendarLanguage(lang = 'en') {
+  return lang === 'zh' ? 'zh' : 'en'
+}
+
+function formatCalendarDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString()
+}
+
+function formatCalendarMetric(value) {
+  if (value == null || value === '') return undefined
+  return String(value)
+}
+
+function parseImportance(value) {
+  const numeric = Number(value)
+  if (Number.isNaN(numeric)) return 0
+  return Math.max(0, Math.min(3, Math.round(numeric)))
+}
+
+function normalizeCalendarItem(item) {
+  const dateTime = formatCalendarDate(item?.Date || item?.date)
+  const country = item?.Country || item?.country || ''
+  const event = item?.Event || item?.event || ''
+  if (!dateTime || !country || !event) return null
+
+  return {
+    id: String(item?.CalendarId ?? `${country}-${event}-${dateTime}`),
+    dateTime,
+    country,
+    event,
+    actual: formatCalendarMetric(item?.Actual),
+    forecast: formatCalendarMetric(item?.Forecast),
+    previous: formatCalendarMetric(item?.Previous),
+    importance: parseImportance(item?.Importance),
+    currency: item?.Currency || undefined,
+  }
+}
+
+function rankCalendarItem(item, nowMs) {
+  const eventMs = new Date(item.dateTime).getTime()
+  if (eventMs >= nowMs) return eventMs - nowMs
+  return 7 * 24 * 60 * 60 * 1000 + (nowMs - eventMs)
+}
+
+async function refreshCalendar(lang) {
+  let lastError = null
+
+  try {
+    await refreshCalendarFromTradingEconomics(lang)
+    return
+  } catch (err) {
+    lastError = err
+    markSourceFailure('calendar:tradingeconomics', err)
+  }
+
+  try {
+    await refreshCalendarFromEodhd(lang)
+  } catch (err) {
+    markSourceFailure('calendar:eodhd', err)
+    throw lastError || err
+  }
+}
+
+async function refreshCalendarFromTradingEconomics(lang) {
+  const url = new URL(CALENDAR_API_BASE)
+  url.searchParams.set('c', getCalendarCredentials())
+  url.searchParams.set('f', 'json')
+  url.searchParams.set('lang', getCalendarLanguage(lang))
+
+  const res = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'world-finance-monitor/1.0',
+    },
+  })
+  if (!res.ok) throw new Error(`TradingEconomics ${res.status}`)
+
+  const payload = await res.json()
+  const items = Array.isArray(payload) ? payload.map(normalizeCalendarItem).filter(Boolean) : []
+  markSourceSuccess('calendar:tradingeconomics', {
+    meta: { items: items.length, lang: getCalendarLanguage(lang) },
+  })
+  setCalendarCache(lang, items)
+}
+
+function normalizeEodhdCalendarItem(item) {
+  const dateTime = formatCalendarDate(item?.date || item?.Date)
+  const country = item?.country || item?.Country || item?.country_name || ''
+  const event = item?.event || item?.Event || item?.title || ''
+  if (!dateTime || !country || !event) return null
+  return {
+    id: String(item?.id ?? item?.event_id ?? `${country}-${event}-${dateTime}`),
+    dateTime,
+    country,
+    event,
+    actual: formatCalendarMetric(item?.actual || item?.Actual),
+    forecast: formatCalendarMetric(item?.estimate || item?.forecast || item?.Forecast),
+    previous: formatCalendarMetric(item?.previous || item?.Previous),
+    importance: parseImportance(item?.importance || item?.Importance),
+    currency: item?.currency || item?.Currency || undefined,
+  }
+}
+
+async function refreshCalendarFromEodhd(lang) {
+  const url = new URL(CALENDAR_EODHD_BASE)
+  url.searchParams.set('api_token', getEodhdToken())
+  url.searchParams.set('fmt', 'json')
+  url.searchParams.set('from', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(0, 10))
+  url.searchParams.set('to', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
+  url.searchParams.set('lang', getCalendarLanguage(lang))
+
+  const res = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'world-finance-monitor/1.0',
+    },
+  })
+  if (!res.ok) throw new Error(`EODHD ${res.status}`)
+
+  const payload = await res.json()
+  const items = Array.isArray(payload) ? payload.map(normalizeEodhdCalendarItem).filter(Boolean) : []
+  markSourceSuccess('calendar:eodhd', {
+    meta: { items: items.length, lang: getCalendarLanguage(lang) },
+  })
+  setCalendarCache(lang, items)
+}
+
+function setCalendarCache(lang, items) {
+  const nowMs = Date.now()
+  const filtered = items
+    .filter((item) => {
+      const eventMs = new Date(item.dateTime).getTime()
+      return eventMs >= nowMs - 2 * 60 * 60 * 1000 && eventMs <= nowMs + 7 * 24 * 60 * 60 * 1000
+    })
+    .sort((a, b) => rankCalendarItem(a, nowMs) - rankCalendarItem(b, nowMs))
+    .slice(0, CALENDAR_DEFAULT_LIMIT)
+
+  calendarCacheByLang.set(lang, {
+    items: filtered,
+    updatedAt: nowMs,
+  })
+}
+
+async function ensureCalendar(lang) {
+  const cache = calendarCacheByLang.get(lang)
+  if (cache && Date.now() - cache.updatedAt <= CALENDAR_CACHE_MS) {
+    return
+  }
+  if (calendarRefreshByLang.has(lang)) {
+    await calendarRefreshByLang.get(lang)
+    return
+  }
+
+  const refreshPromise = refreshCalendar(lang)
+    .catch((err) => {
+      console.warn('[market] calendar refresh failed:', err.message)
+    })
+    .finally(() => {
+      calendarRefreshByLang.delete(lang)
+    })
+
+  calendarRefreshByLang.set(lang, refreshPromise)
+  await refreshPromise
+}
+
+export async function getCalendar(lang = 'en') {
+  const normalizedLang = getCalendarLanguage(lang)
+  await ensureCalendar(normalizedLang)
+  const cache = calendarCacheByLang.get(normalizedLang)
+  return cache?.items ? cache.items.map((item) => ({ ...item })) : []
 }

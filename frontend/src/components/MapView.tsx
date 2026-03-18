@@ -10,7 +10,7 @@ const MapLayerContext = createContext<{ showSpotsLayer: boolean; setShowSpotsLay
 import L from 'leaflet'
 import type { MapSpot } from '../data/mock'
 import { MAP_SPOTS_DEFAULT } from '../data/mock'
-import { useData } from '../state/DataContext'
+import { useNewsData } from '../state/DataContext'
 import { useLocale } from '../i18n/LocaleContext'
 import { getRegionDisplayName } from '../i18n/displayNames'
 import 'leaflet/dist/leaflet.css'
@@ -221,8 +221,8 @@ function getStoredShowSpotsLayer(): boolean {
 
 export function MapView({ selectedRegionId, onRegionSelect }: MapViewProps) {
   const { t, locale } = useLocale()
-  const { data } = useData()
-  const spots = data.mapSpots.length > 0 ? data.mapSpots : MAP_SPOTS_DEFAULT
+  const { mapSpots } = useNewsData()
+  const spots = mapSpots.length > 0 ? mapSpots : MAP_SPOTS_DEFAULT
   const [showSpotsLayer, setShowSpotsLayerState] = useState(getStoredShowSpotsLayer)
   const initialView = useMemo(() => getViewFromUrl(), [])
 

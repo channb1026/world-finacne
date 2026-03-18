@@ -1,17 +1,40 @@
 import { useLocale } from '../i18n/LocaleContext'
-import { useData } from '../state/DataContext'
+import { useDataActions, useMarketData } from '../state/DataContext'
 import { getKeyMetricDisplayName } from '../i18n/displayNames'
-import { useFlashOnChange } from '../hooks/useFlashOnChange'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
   return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function KeyMetricItem({
+  name,
+  value,
+  changePct,
+  locale,
+  animate,
+}: {
+  name: string
+  value: string
+  changePct: number
+  locale: 'zh' | 'en'
+  animate: boolean
+}) {
+  return (
+    <div className="key-metrics-bar__item">
+      <span className="key-metrics-bar__name">{getKeyMetricDisplayName(name, locale)}</span>
+      <span key={`${name}-${value}`} className={`key-metrics-bar__value ${animate ? 'value-flash' : ''}`}>{value}</span>
+      <span key={`${name}-${changePct}`} className={`key-metrics-bar__chg ${changePct >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+        {changePct >= 0 ? '+' : ''}{changePct}%
+      </span>
+    </div>
+  )
+}
+
 export function KeyMetricsBar() {
   const { locale, t } = useLocale()
-  const { data, refreshMarket } = useData()
-  const { keyMetrics, lastUpdated, error, loaded } = data
+  const { refreshMarket } = useDataActions()
+  const { keyMetrics, lastUpdated, error, loaded } = useMarketData()
   const loadedOnce = loaded.keyMetrics
 
   if (keyMetrics.length === 0) {
@@ -28,22 +51,12 @@ export function KeyMetricsBar() {
 
   return (
     <div className="key-metrics-bar">
-      {lastUpdated.market && (
-        <span className="key-metrics-bar__updated">{t('common.updated')} {formatLastUpdated(lastUpdated.market, locale)}</span>
+      {lastUpdated && (
+        <span className="key-metrics-bar__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>
       )}
-      {keyMetrics.map((m) => {
-        const flashValue = useFlashOnChange(m.value, m.name)
-        const flashChange = useFlashOnChange(m.changePct, `${m.name}-chg`)
-        return (
-          <div key={m.name} className="key-metrics-bar__item">
-            <span className="key-metrics-bar__name">{getKeyMetricDisplayName(m.name, locale)}</span>
-            <span className={`key-metrics-bar__value ${flashValue ? 'value-flash' : ''}`}>{m.value}</span>
-            <span className={`key-metrics-bar__chg ${m.changePct >= 0 ? 'up' : 'down'} ${flashChange ? 'value-flash' : ''}`}>
-              {m.changePct >= 0 ? '+' : ''}{m.changePct}%
-            </span>
-          </div>
-        )
-      })}
+      {keyMetrics.map((m) => (
+        <KeyMetricItem key={m.name} {...m} locale={locale} animate={loadedOnce} />
+      ))}
     </div>
   )
 }

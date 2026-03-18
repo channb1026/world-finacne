@@ -7,6 +7,12 @@
 
 import https from 'https'
 import Parser from 'rss-parser'
+import {
+  registerSource,
+  markSourceSuccess,
+  markSourceFailure,
+} from '../sourceStatus.js'
+import { classifyNewsItem } from './newsClassifier.js'
 
 // 统一 HTTPS Agent：延长超时、保持连接，缓解 TLS 握手被中断或慢速网络
 const httpsAgent = new https.Agent({
@@ -44,6 +50,23 @@ const REGION_SEARCH_QUERY = {
 
 const GOOGLE_NEWS_SEARCH_BASE = 'https://news.google.com/rss/search?q='
 const GOOGLE_NEWS_SEARCH_SUFFIX = '+when:7d&hl=en-US&gl=US&ceid=US:en'
+const GOOGLE_NEWS_SEARCH_SUFFIX_ZH = '+when:7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans'
+
+const GLOBAL_FINANCE_SITE_FEEDS = [
+  { site: 'marketwatch.com', source: 'MarketWatch (Aggregated)', region: 'US', query: 'markets OR economy OR federal reserve' },
+  { site: 'ft.com', source: 'Financial Times (Aggregated)', region: 'UK', query: 'markets OR economy OR central bank' },
+  { site: 'fortune.com', source: 'Fortune (Aggregated)', region: 'US', query: 'finance OR markets OR economy' },
+  { site: 'economist.com', source: 'The Economist (Aggregated)', region: 'UK', query: 'finance OR markets OR economy' },
+  { site: 'investing.com', source: 'Investing.com (Aggregated)', region: 'US', query: 'markets OR forex OR commodities' },
+  { site: 'apnews.com', source: 'AP Business (Aggregated)', region: 'US', query: 'business OR economy OR inflation' },
+]
+
+const CN_MARKET_SITE_FEEDS = [
+  { site: 'eastmoney.com', source: '东方财富(聚合)', query: 'A股 OR 沪深 OR 券商 OR 市场' },
+  { site: 'cls.cn', source: '财联社(聚合)', query: 'A股 OR 上市公司 OR 盘面 OR 市场' },
+  { site: '10jqka.com.cn', source: '同花顺财经(聚合)', query: 'A股 OR 沪深 OR 资金 OR 板块' },
+  { site: 'yicai.com', source: '第一财经(聚合)', query: 'A股 OR 宏观 OR 金融市场' },
+]
 
 /**
  * RSS 源：地图聚合国际门户按国家切分；快讯 = 各门户 breaking；热点财经 = 政经金融头条按时间排序；A 股仅用国内证券财经源。
@@ -76,6 +99,12 @@ const RSS_FEEDS = [
   { url: 'https://feeds.bbci.co.uk/news/business/economy/rss.xml', source: 'BBC', region: 'UK' },
   // === Reuters（全球，供快讯+热点）===
   { url: 'https://www.reutersagency.com/feed/', source: 'Reuters', region: 'US', breaking: true },
+  // === 扩展国际财经源：通过 Google News 定向站点搜索补足热点财经覆盖 ===
+  ...GLOBAL_FINANCE_SITE_FEEDS.map((feed) => ({
+    url: GOOGLE_NEWS_SEARCH_BASE + encodeURIComponent(`${feed.query} site:${feed.site}`) + GOOGLE_NEWS_SEARCH_SUFFIX,
+    source: feed.source,
+    region: feed.region,
+  })),
   // === 新加坡 联合早报（官网无公开 RSS，使用聚合源）===
   { url: 'https://feedx.site/rss/zaobao.xml', source: '联合早报', region: 'SG', breaking: true },
   // === 中国（仅国内证券/财经/经济门户，专供 A 股资讯 + 地图 CN；热点财经不展示此类来源避免重复）===
@@ -92,6 +121,12 @@ const RSS_FEEDS = [
   { url: 'https://finance.ifeng.com/rss/stock.xml', source: '凤凰财经', region: 'CN' },
   { url: 'https://finance.ifeng.com/rss/finance.xml', source: '凤凰财经', region: 'CN' },
   { url: 'https://money.163.com/special/00252EQ2/moneyrss.xml', source: '网易财经', region: 'CN' },
+  // === 扩展 A 股高频中文源：通过 Google News 定向站点搜索补足个股/盘面/宏观覆盖 ===
+  ...CN_MARKET_SITE_FEEDS.map((feed) => ({
+    url: GOOGLE_NEWS_SEARCH_BASE + encodeURIComponent(`${feed.query} site:${feed.site}`) + GOOGLE_NEWS_SEARCH_SUFFIX_ZH,
+    source: feed.source,
+    region: 'CN',
+  })),
   // === 地区情报：各国「与该国相关」的新闻（Google News 按国家名搜索）；US/UK/CN/SG 已有多源，其余国家加搜索 ===
   ...REGIONS.filter((r) => !['US', 'UK', 'CN', 'SG'].includes(r) && REGION_SEARCH_QUERY[r]).map((region) => ({
     url: GOOGLE_NEWS_SEARCH_BASE + encodeURIComponent(REGION_SEARCH_QUERY[region]) + GOOGLE_NEWS_SEARCH_SUFFIX,
@@ -100,6 +135,19 @@ const RSS_FEEDS = [
     breaking: true,
   })),
 ]
+
+RSS_FEEDS.forEach((feed) => {
+  registerSource(`news:${feed.url}`, {
+    name: `${feed.source}${feed.region ? ` (${feed.region})` : ''}`,
+    category: 'news',
+    meta: {
+      source: feed.source,
+      region: feed.region,
+      breaking: Boolean(feed.breaking),
+      url: feed.url,
+    },
+  })
+})
 
 /** 来源名称简体中文展示（适应国内用户） */
 const SOURCE_ZH = {
@@ -116,6 +164,12 @@ const SOURCE_ZH = {
   'MSNBC': 'MSNBC',
   'BBC': 'BBC',
   'Reuters': '路透社',
+  'MarketWatch (Aggregated)': 'MarketWatch',
+  'Financial Times (Aggregated)': '金融时报',
+  'Fortune (Aggregated)': '财富',
+  'The Economist (Aggregated)': '经济学人',
+  'Investing.com (Aggregated)': 'Investing.com',
+  'AP Business (Aggregated)': '美联社财经',
   '联合早报': '联合早报',
   'Google 新闻': '谷歌新闻',
   '新浪财经': '新浪财经',
@@ -123,10 +177,73 @@ const SOURCE_ZH = {
   '财新网': '财新网',
   '证券之星': '证券之星',
   '每日经济新闻': '每日经济新闻',
+  '东方财富(聚合)': '东方财富',
+  '财联社(聚合)': '财联社',
+  '同花顺财经(聚合)': '同花顺财经',
+  '第一财经(聚合)': '第一财经',
 }
 
 /** 国内证券/财经/经济门户（仅用于 A 股资讯）；热点财经不展示这些来源，避免与 A 股资讯重复 */
-const DOMESTIC_SOURCES = ['Google 新闻', '新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
+const DOMESTIC_SOURCES = ['Google 新闻', '新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经', '东方财富(聚合)', '财联社(聚合)', '同花顺财经(聚合)', '第一财经(聚合)']
+const HOT_SOURCE_PRIORITY = [
+  'Reuters',
+  'WSJ',
+  'Yahoo Finance',
+  'CNBC',
+  'Financial Times (Aggregated)',
+  'MarketWatch (Aggregated)',
+  'BBC',
+  'Guardian',
+  'AP Business (Aggregated)',
+  'Yahoo News',
+  'NYT',
+  'Google News',
+  'NPR Business',
+  'NPR',
+  'Fortune (Aggregated)',
+  'The Economist (Aggregated)',
+  'Investing.com (Aggregated)',
+  'CNN',
+  'MSNBC',
+  '联合早报',
+]
+const BREAKING_SOURCE_PRIORITY = [
+  'Reuters',
+  'WSJ',
+  'BBC',
+  'AP Business (Aggregated)',
+  'Yahoo News',
+  'Google News',
+  'NYT',
+  'Guardian',
+  'NPR',
+  'CNN',
+  'MSNBC',
+  '联合早报',
+]
+const A_SHARE_SOURCE_PRIORITY = [
+  '财联社(聚合)',
+  '东方财富(聚合)',
+  '同花顺财经(聚合)',
+  '第一财经(聚合)',
+  '新浪财经',
+  '财新网',
+  '中国新闻网',
+  '证券之星',
+  '每日经济新闻',
+  '凤凰财经',
+  '网易财经',
+]
+
+function sortSourcesByPriority(names, priorityList) {
+  const priority = new Map(priorityList.map((name, index) => [name, index]))
+  return [...names].sort((a, b) => {
+    const aRank = priority.has(a) ? priority.get(a) : Number.MAX_SAFE_INTEGER
+    const bRank = priority.has(b) ? priority.get(b) : Number.MAX_SAFE_INTEGER
+    if (aRank !== bRank) return aRank - bRank
+    return a.localeCompare(b)
+  })
+}
 
 let cache = { all: [], hot: [], breaking: [], byRegion: {}, updatedAt: 0 }
 const CACHE_MS = 30 * 1000 // 30 秒
@@ -201,6 +318,91 @@ function normalizeItem(entry, source, region, id, baseUrl) {
   }
 }
 
+function normalizeHeadline(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/\s+-\s+(reuters|cnn|bbc|wsj|nyt|cnbc|yahoo|guardian|ap|marketwatch).*$/i, '')
+    .replace(/[|｜丨]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function headlineTokens(title) {
+  return normalizeHeadline(title)
+    .split(' ')
+    .filter((token) => token.length >= 2)
+}
+
+function headlineSignature(title) {
+  const tokens = headlineTokens(title)
+  return tokens.slice(0, 12).join(' ')
+}
+
+function jaccardSimilarity(tokensA, tokensB) {
+  if (tokensA.length === 0 || tokensB.length === 0) return 0
+  const setA = new Set(tokensA)
+  const setB = new Set(tokensB)
+  let intersection = 0
+  for (const token of setA) {
+    if (setB.has(token)) intersection += 1
+  }
+  const union = new Set([...setA, ...setB]).size
+  return union > 0 ? intersection / union : 0
+}
+
+function shareHeadlinePrefix(tokensA, tokensB, prefixLength = 4) {
+  if (tokensA.length < prefixLength || tokensB.length < prefixLength) return false
+  for (let i = 0; i < prefixLength; i++) {
+    if (tokensA[i] !== tokensB[i]) return false
+  }
+  return true
+}
+
+function areLikelySameStory(candidate, existing) {
+  const candidateLink = candidate.link ? candidate.link.replace(/[?#].*$/, '') : ''
+  const existingLink = existing.link ? existing.link.replace(/[?#].*$/, '') : ''
+  if (candidateLink && existingLink && candidateLink === existingLink) return true
+
+  const candidateTokens = headlineTokens(candidate.title)
+  const existingTokens = headlineTokens(existing.title)
+  if (candidateTokens.length === 0 || existingTokens.length === 0) return false
+
+  const similarity = jaccardSimilarity(candidateTokens, existingTokens)
+  if (similarity >= 0.72) return true
+  if (shareHeadlinePrefix(candidateTokens, existingTokens) && similarity >= 0.5) return true
+
+  const timeDelta = Math.abs((candidate.pubDateMs || 0) - (existing.pubDateMs || 0))
+  if (timeDelta <= 3 * 60 * 60 * 1000 && similarity >= 0.45) return true
+
+  return false
+}
+
+function dedupeItems(items, { limit }) {
+  const unique = []
+
+  for (const item of items) {
+    const signature = headlineSignature(item.title)
+    if (!signature && !item.link && !item.title) continue
+    if (unique.some((existing) => areLikelySameStory(item, existing))) continue
+    unique.push(item)
+    if (unique.length >= limit) break
+  }
+
+  return unique
+}
+
+function dedupeBucket(list) {
+  const unique = []
+  for (const item of list) {
+    const signature = headlineSignature(item.title)
+    if (!signature && !item.link && !item.title) continue
+    if (unique.some((existing) => areLikelySameStory(item, existing))) continue
+    unique.push(item)
+  }
+  return unique
+}
+
 async function fetchFeed(feedConfig, idStart) {
   try {
     const feed = await parser.parseURL(feedConfig.url)
@@ -210,9 +412,9 @@ async function fetchFeed(feedConfig, idStart) {
     } catch {
       baseUrl = feedConfig.url
     }
-    const items = (feed.items || []).slice(0, 25).map((entry, i) =>
+  const items = (feed.items || []).slice(0, 25).map((entry, i) =>
       normalizeItem(entry, feedConfig.source, feedConfig.region, idStart + i, baseUrl)
-    ).filter(Boolean)
+    ).filter(Boolean).map(classifyNewsItem)
     return { items, source: feedConfig.source, failed: false }
   } catch (err) {
     return { items: [], source: feedConfig.source, failed: true, err: err.message }
@@ -232,12 +434,16 @@ async function refreshCache() {
       if (isCircuitOpen(f.url)) {
         return { items: [], source: f.source, failed: false }
       }
-      const { items, source, failed } = await fetchFeed(f, id)
+      const { items, source, failed, err } = await fetchFeed(f, id)
       if (failed) {
         failedSources.push(source)
         recordCircuitFailure(f.url)
+        markSourceFailure(`news:${f.url}`, err ?? 'fetch failed')
       } else {
         recordCircuitSuccess(f.url)
+        markSourceSuccess(`news:${f.url}`, {
+          meta: { items: items.length },
+        })
       }
       items.forEach((item) => {
         item.id = String(id++)
@@ -276,41 +482,47 @@ async function refreshCache() {
   })
   Object.keys(bySource).forEach((name) => {
     bySource[name].sort((a, b) => (b.pubDateMs - a.pubDateMs))
+    bySource[name] = dedupeBucket(bySource[name])
   })
-  const sourceNames = ['Google News', 'Yahoo News', 'Yahoo Finance', 'Guardian', 'CNBC', 'NPR', 'NPR Business', 'CNN', 'WSJ', 'NYT', 'MSNBC', 'BBC', 'Reuters', '联合早报']
-  const restNames = Object.keys(bySource).filter((n) => !sourceNames.includes(n))
-  const allNamesForHot = [...sourceNames, ...restNames].filter((n) => (bySource[n] || []).length > 0 && !DOMESTIC_SOURCES.includes(n))
-  const hot = []
-  for (let round = 0; hot.length < HOT_TARGET; round++) {
+  const allNamesForHot = sortSourcesByPriority(
+    Object.keys(bySource).filter((n) => (bySource[n] || []).length > 0 && !DOMESTIC_SOURCES.includes(n)),
+    HOT_SOURCE_PRIORITY
+  )
+  const hotCandidates = []
+  for (let round = 0; hotCandidates.length < HOT_TARGET * 3; round++) {
     let added = 0
     for (const name of allNamesForHot) {
       const list = bySource[name] || []
       if (list[round]) {
-        hot.push(list[round])
+        hotCandidates.push(list[round])
         added++
-        if (hot.length >= HOT_TARGET) break
+        if (hotCandidates.length >= HOT_TARGET * 3) break
       }
     }
     if (added === 0) break
   }
-  hot.sort((a, b) => (b.pubDateMs - a.pubDateMs))
+  const hot = dedupeItems(hotCandidates, { limit: HOT_TARGET })
 
   // 快讯用：全球突发要闻（仅 breaking 源，按源轮询，与行业无关）
   const BREAKING_TARGET = 18
-  const breakingSourceNames = Object.keys(breakingItemsBySource).filter((n) => (breakingItemsBySource[n] || []).length > 0)
-  const breaking = []
-  for (let round = 0; breaking.length < BREAKING_TARGET; round++) {
+  const breakingSourceNames = sortSourcesByPriority(
+    Object.keys(breakingItemsBySource).filter((n) => (breakingItemsBySource[n] || []).length > 0),
+    BREAKING_SOURCE_PRIORITY
+  )
+  const breakingCandidates = []
+  for (let round = 0; breakingCandidates.length < BREAKING_TARGET * 3; round++) {
     let added = 0
     for (const name of breakingSourceNames) {
       const list = breakingItemsBySource[name] || []
       if (list[round]) {
-        breaking.push(list[round])
+        breakingCandidates.push(list[round])
         added++
-        if (breaking.length >= BREAKING_TARGET) break
+        if (breakingCandidates.length >= BREAKING_TARGET * 3) break
       }
     }
     if (added === 0) break
   }
+  const breaking = dedupeItems(breakingCandidates, { limit: BREAKING_TARGET })
 
   cache = {
     all: all.slice(0, 300),
@@ -415,8 +627,7 @@ export async function getMapSpots() {
 }
 
 /** A 股资讯：仅展示国内证券/财经/经济门户。新浪/财新/证券之星/每日经济新闻等源可能因网络或反爬不可达，中国新闻网通常最稳定；可配置 HTTPS_PROXY 后重启尝试。凤凰财经、网易财经为补充源。 */
-const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
-const A_SHARE_SOURCE_ORDER = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经']
+const A_SHARE_ALLOWED_SOURCES = ['新浪财经', '中国新闻网', '财新网', '证券之星', '每日经济新闻', '凤凰财经', '网易财经', '东方财富(聚合)', '财联社(聚合)', '同花顺财经(聚合)', '第一财经(聚合)']
 
 export async function getAShareNews() {
   await ensureCache()
@@ -430,26 +641,36 @@ export async function getAShareNews() {
     if (!bySource[item.source]) bySource[item.source] = []
     bySource[item.source].push(item)
   })
-  const sourceNames = [...A_SHARE_SOURCE_ORDER]
-  const restNames = Object.keys(bySource).filter((n) => !sourceNames.includes(n))
-  const allNames = [...sourceNames, ...restNames].filter((n) => (bySource[n] || []).length > 0)
-  const aShare = []
+  const allNames = sortSourcesByPriority(
+    Object.keys(bySource).filter((n) => (bySource[n] || []).length > 0),
+    A_SHARE_SOURCE_PRIORITY
+  )
+  const aShareCandidates = []
   const A_SHARE_TARGET = 15
-  for (let round = 0; aShare.length < A_SHARE_TARGET; round++) {
+  for (let round = 0; aShareCandidates.length < A_SHARE_TARGET * 3; round++) {
     let added = 0
     for (const name of allNames) {
       const list = bySource[name] || []
       if (list[round]) {
-        aShare.push(list[round])
+        aShareCandidates.push(list[round])
         added++
-        if (aShare.length >= A_SHARE_TARGET) break
+        if (aShareCandidates.length >= A_SHARE_TARGET * 3) break
       }
     }
     if (added === 0) break
   }
-  aShare.sort((a, b) => (b.pubDateMs - a.pubDateMs))
-  const toItem = (n) => ({ id: n.id, title: n.title, source: n.source, time: n.time, link: n.link })
-  return aShare.slice(0, A_SHARE_TARGET).map(toItem)
+  const aShare = dedupeItems(aShareCandidates, { limit: A_SHARE_TARGET })
+  const toItem = (n) => ({
+    id: n.id,
+    title: n.title,
+    source: n.source,
+    time: n.time,
+    link: n.link,
+    category: n.category,
+    tags: n.tags,
+    marketScope: n.marketScope,
+  })
+  return aShare.map(toItem)
 }
 
 /** 快讯：全球突发要闻（仅综合/国际源），供底部单行滚动；返回 title + link 以支持点击打开 */

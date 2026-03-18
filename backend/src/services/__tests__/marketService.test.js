@@ -35,6 +35,7 @@ const MOCK_BY_SYMBOL = {
 }
 
 let yahooQuoteCallCount = 0
+const fetchMock = vi.fn()
 vi.mock('yahoo-finance2', () => ({
   default: class MockYahooFinance {
     async quote(syms) {
@@ -48,12 +49,15 @@ vi.mock('yahoo-finance2', () => ({
 describe('marketService', () => {
   beforeEach(() => {
     yahooQuoteCallCount = 0
+    fetchMock.mockReset()
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(0)
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('getRates、getStocks、getKeyMetrics 共享 snapshot，Yahoo 只调一次', async () => {
@@ -81,5 +85,42 @@ describe('marketService', () => {
     const spread = panel.find((p) => p.name === '利差10Y-3M')
     expect(spread).toBeDefined()
     expect(spread?.value).toMatch(/\d+bp|^-$/)
+  })
+
+  it('getCalendar 返回真实接口格式化后的经济事件', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ([
+        {
+          CalendarId: 1,
+          Date: '1970-01-01T01:00:00.000Z',
+          Country: 'United States',
+          Event: 'CPI YoY',
+          Actual: '3.2%',
+          Forecast: '3.1%',
+          Previous: '3.0%',
+          Importance: 3,
+          Currency: 'USD',
+        },
+      ]),
+    })
+
+    const { getCalendar } = await import('../marketService.js')
+    const events = await getCalendar('en')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(events).toEqual([
+      {
+        id: '1',
+        dateTime: '1970-01-01T01:00:00.000Z',
+        country: 'United States',
+        event: 'CPI YoY',
+        actual: '3.2%',
+        forecast: '3.1%',
+        previous: '3.0%',
+        importance: 3,
+        currency: 'USD',
+      },
+    ])
   })
 })

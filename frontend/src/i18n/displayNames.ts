@@ -129,6 +129,12 @@ const SOURCE_ZH: Record<string, string> = {
   'MSNBC': 'MSNBC',
   'BBC': 'BBC',
   'Reuters': '路透社',
+  'MarketWatch (Aggregated)': 'MarketWatch',
+  'Financial Times (Aggregated)': '金融时报',
+  'Fortune (Aggregated)': '财富',
+  'The Economist (Aggregated)': '经济学人',
+  'Investing.com (Aggregated)': 'Investing.com',
+  'AP Business (Aggregated)': '美联社财经',
   '联合早报': '联合早报',
   'Google 新闻': '谷歌新闻',
   '新浪财经': '新浪财经',
@@ -138,6 +144,10 @@ const SOURCE_ZH: Record<string, string> = {
   '每日经济新闻': '每日经济新闻',
   '凤凰财经': '凤凰财经',
   '网易财经': '网易财经',
+  '东方财富(聚合)': '东方财富',
+  '财联社(聚合)': '财联社',
+  '同花顺财经(聚合)': '同花顺财经',
+  '第一财经(聚合)': '第一财经',
   '系统': '系统',
 }
 const SOURCE_EN: Record<string, string> = {
@@ -150,10 +160,54 @@ const SOURCE_EN: Record<string, string> = {
   '每日经济新闻': 'NBD',
   '凤凰财经': 'Phoenix Finance',
   '网易财经': 'NetEase Finance',
+  '东方财富(聚合)': 'Eastmoney',
+  '财联社(聚合)': 'Cailian Press',
+  '同花顺财经(聚合)': '10jqka Finance',
+  '第一财经(聚合)': 'Yicai',
   '系统': 'System',
+}
+
+const NEWS_CATEGORY_EN: Record<string, string> = {
+  '宏观': 'Macro',
+  '央行/利率': 'Central banks',
+  '通胀/就业': 'Inflation & jobs',
+  '汇率/债券': 'FX & bonds',
+  '股市/盘面': 'Equities',
+  '大宗商品': 'Commodities',
+  '公司/财报': 'Companies',
+  '地缘/政策': 'Geopolitics',
+  '中国宏观': 'China macro',
+  'A股盘面': 'A-share flow',
+  'A股公司': 'A-share companies',
+}
+
+const NEWS_TAG_EN: Record<string, string> = {
+  '美联储': 'Fed',
+  '通胀': 'Inflation',
+  '就业': 'Jobs',
+  '人民币': 'CNY',
+  '美债': 'Treasuries',
+  '原油': 'Crude',
+  '黄金': 'Gold',
+  'A股': 'A-shares',
+  '财联社': 'Cailian Press',
+  '东方财富': 'Eastmoney',
+  '科技股': 'Tech',
+  '地产': 'Property',
 }
 
 export function getNewsSourceDisplay(source: string, locale: Locale): string {
   if (locale === 'zh') return SOURCE_ZH[source] ?? source
   return SOURCE_EN[source] ?? source
+}
+
+export function getNewsCategoryDisplay(category: string | undefined, locale: Locale): string {
+  if (!category) return ''
+  if (locale === 'zh') return category
+  return NEWS_CATEGORY_EN[category] ?? category
+}
+
+export function getNewsTagDisplay(tag: string, locale: Locale): string {
+  if (locale === 'zh') return tag
+  return NEWS_TAG_EN[tag] ?? tag
 }

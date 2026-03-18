@@ -10,7 +10,7 @@ export interface FxPair {
   changePct: number
 }
 
-export type NewsCategory = '政治' | '经济' | '军事' | '科技' | '人工智能' | '事件'
+export type NewsCategory = string
 
 export interface NewsItem {
   id: string
@@ -19,6 +19,8 @@ export interface NewsItem {
   time: string
   region?: RegionId
   category?: NewsCategory
+  tags?: string[]
+  marketScope?: 'global' | 'china' | 'a_share'
   link?: string
 }
 
@@ -70,6 +72,9 @@ export interface AShareNewsItem {
   title: string
   source: string
   time: string
+  category?: NewsCategory
+  tags?: string[]
+  marketScope?: 'global' | 'china' | 'a_share'
   link?: string
 }
 

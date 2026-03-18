@@ -18,7 +18,7 @@ export const messages: Record<string, { zh: string; en: string }> = {
   'bottomBar.copyViewLink': { zh: '复制视角链接', en: 'Copy view link' },
   'bottomBar.copied': { zh: '已复制', en: 'Copied' },
   'bottomBar.comingUp': { zh: '即将到来', en: 'Coming up' },
-  'bottomBar.calendarPlaceholder': { zh: '经济日历（数据接入中，暂无事件）', en: 'Economic calendar (no events yet)' },
+  'bottomBar.calendarPlaceholder': { zh: '当前窗口暂无经济事件', en: 'No economic events in the current window' },
 
   'ticker.feed': { zh: '快讯', en: 'Breaking' },
 
@@ -48,8 +48,11 @@ export const messages: Record<string, { zh: string; en: string }> = {
   'panel.rates': { zh: '利率 · 波动率', en: 'Rates & volatility' },
   'panel.marketStatus': { zh: '市场状态', en: 'Market status' },
   'panel.live': { zh: '频道直播', en: 'Live' },
+  'panel.sourceHealth': { zh: '源状态监控', en: 'Source health' },
   'panel.openInNewWindow': { zh: '新窗口打开', en: 'Open in new window' },
   'panel.clickToWatch': { zh: '点击在新窗口观看直播', en: 'Click to watch in new window' },
+  'panel.filterAll': { zh: '全部', en: 'All' },
+  'panel.filterByCategory': { zh: '按分类筛选', en: 'Filter by category' },
 
   'regionDrawer.intel': { zh: '地区情报', en: 'Regional intel' },
   'regionDrawer.regionNews': { zh: '该地区资讯', en: 'News in this region' },
@@ -62,6 +65,19 @@ export const messages: Record<string, { zh: string; en: string }> = {
   'marketStatus.closed': { zh: '休市', en: 'Closed' },
 
   'aShare.noNews': { zh: '暂无 A 股资讯（部分 RSS 可能无法连接）', en: 'No A-Share news (some feeds may be unavailable)' },
+  'sourceHealth.up': { zh: '正常', en: 'Up' },
+  'sourceHealth.down': { zh: '异常', en: 'Down' },
+  'sourceHealth.unknown': { zh: '未知', en: 'Unknown' },
+  'sourceHealth.lastSuccess': { zh: '最近成功', en: 'Last success' },
+  'sourceHealth.noMessage': { zh: '无错误信息', en: 'No error message' },
+  'sourceHealth.filterAll': { zh: '全部', en: 'All' },
+  'sourceHealth.filter.market': { zh: '行情', en: 'Market' },
+  'sourceHealth.filter.calendar': { zh: '日历', en: 'Calendar' },
+  'sourceHealth.filter.news': { zh: '新闻', en: 'News' },
+  'sourceHealth.alert.fxCritical': { zh: '关键汇率主源与备用源同时异常，FX 数据存在中断风险。', en: 'Both primary and fallback FX sources are down.' },
+  'sourceHealth.alert.calendarCritical': { zh: '经济日历主源与备用源同时异常，事件流可能中断。', en: 'Both primary and fallback calendar sources are down.' },
+  'sourceHealth.alert.newsCritical': { zh: '新闻聚合源全部异常，新闻流已失去可用输入。', en: 'All news ingestion sources are down.' },
+  'sourceHealth.alert.newsWarning': { zh: '新闻源异常占比偏高：{count}/{total} 个源异常。', en: 'News source failures are elevated: {count}/{total} down.' },
 
   'locale.zh': { zh: '中文', en: '中文' },
   'locale.en': { zh: 'English', en: 'English' },

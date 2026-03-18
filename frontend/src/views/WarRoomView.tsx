@@ -8,7 +8,10 @@ import { KeyMetricsBar } from '../components/KeyMetricsBar'
 import { TickerStrip } from '../components/TickerStrip'
 import { MapSkeleton } from '../components/MapSkeleton'
 import { BottomBar } from '../components/BottomBar'
+import { SourceHealthPanel } from '../components/SourceHealthPanel'
 import type { RegionId } from '../data/mock'
+
+const SHOW_SOURCE_HEALTH_PANEL = import.meta.env.VITE_SHOW_SOURCE_HEALTH === 'true'
 
 const MapView = lazy(() =>
   import('../components/MapView').then((m) => ({ default: m.MapView }))
@@ -53,6 +56,7 @@ export function WarRoomView() {
         <aside className="war-room__right">
           <StocksPanel />
           <ASharePanel />
+          {SHOW_SOURCE_HEALTH_PANEL && <SourceHealthPanel />}
         </aside>
       </div>
       <BottomBar />

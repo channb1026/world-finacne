@@ -5,7 +5,19 @@ import { getMessage } from './translations'
 
 const STORAGE_KEY = 'war-room-locale'
 
+function loadUrlLocale(): Locale | null {
+  try {
+    const value = new URLSearchParams(window.location.search).get('locale')
+    if (value === 'zh' || value === 'en') return value
+  } catch (err) {
+    console.warn('[i18n] loadUrlLocale failed:', err)
+  }
+  return null
+}
+
 function loadStoredLocale(): Locale {
+  const urlLocale = loadUrlLocale()
+  if (urlLocale) return urlLocale
   try {
     const v = localStorage.getItem(STORAGE_KEY) as Locale | null
     if (v === 'zh' || v === 'en') return v

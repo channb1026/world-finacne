@@ -16,58 +16,78 @@ import type {
 } from '../data/mock'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
+const API_TIMEOUT_MS = 12 * 1000
 
 export const POLL_INTERVAL_NEWS = 45 * 1000
 export const POLL_INTERVAL_MARKET = 3 * 1000
 
-async function fetchApi<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`)
+async function fetchApi<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+  const abortHandler = () => controller.abort()
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeout)
+      controller.abort()
+    } else {
+      signal.addEventListener('abort', abortHandler, { once: true })
+    }
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, { signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+    if (signal) signal.removeEventListener('abort', abortHandler)
+  }
   if (!res.ok) throw new Error(`API ${path}: ${res.status}`)
   return res.json() as Promise<T>
 }
 
-export async function fetchNews(): Promise<NewsItem[]> {
-  const data = await fetchApi<NewsItem[]>('/news')
+export async function fetchNews(signal?: AbortSignal): Promise<NewsItem[]> {
+  const data = await fetchApi<NewsItem[]>('/news', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchNewsByRegion(region: RegionId): Promise<NewsItem[]> {
-  const data = await fetchApi<NewsItem[]>(`/news?region=${region}`)
+export async function fetchNewsByRegion(region: RegionId, signal?: AbortSignal): Promise<NewsItem[]> {
+  const data = await fetchApi<NewsItem[]>(`/news?region=${region}`, signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchRates(): Promise<FxPair[]> {
-  const data = await fetchApi<FxPair[]>('/rates')
+export async function fetchRates(signal?: AbortSignal): Promise<FxPair[]> {
+  const data = await fetchApi<FxPair[]>('/rates', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchRatesPanel(): Promise<RateItem[]> {
-  const data = await fetchApi<RateItem[]>('/rates-panel')
+export async function fetchRatesPanel(signal?: AbortSignal): Promise<RateItem[]> {
+  const data = await fetchApi<RateItem[]>('/rates-panel', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchStocks(): Promise<StockIndex[]> {
-  const data = await fetchApi<StockIndex[]>('/stocks')
+export async function fetchStocks(signal?: AbortSignal): Promise<StockIndex[]> {
+  const data = await fetchApi<StockIndex[]>('/stocks', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchKeyMetrics(): Promise<KeyMetric[]> {
-  const data = await fetchApi<KeyMetric[]>('/key-metrics')
+export async function fetchKeyMetrics(signal?: AbortSignal): Promise<KeyMetric[]> {
+  const data = await fetchApi<KeyMetric[]>('/key-metrics', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchCommodities(): Promise<Commodity[]> {
-  const data = await fetchApi<Commodity[]>('/commodities')
+export async function fetchCommodities(signal?: AbortSignal): Promise<Commodity[]> {
+  const data = await fetchApi<Commodity[]>('/commodities', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchAShareIndices(): Promise<AShareIndex[]> {
-  const data = await fetchApi<AShareIndex[]>('/a-share/indices')
+export async function fetchAShareIndices(signal?: AbortSignal): Promise<AShareIndex[]> {
+  const data = await fetchApi<AShareIndex[]>('/a-share/indices', signal)
   return Array.isArray(data) ? data : []
 }
 
-export async function fetchAShareNews(): Promise<AShareNewsItem[]> {
-  const data = await fetchApi<AShareNewsItem[]>('/a-share/news')
+export async function fetchAShareNews(signal?: AbortSignal): Promise<AShareNewsItem[]> {
+  const data = await fetchApi<AShareNewsItem[]>('/a-share/news', signal)
   return Array.isArray(data) ? data : []
 }
 
@@ -76,26 +96,53 @@ export interface TickerItem {
   link?: string
 }
 
-export async function fetchTicker(): Promise<TickerItem[]> {
-  const data = await fetchApi<TickerItem[]>('/ticker')
+export async function fetchTicker(signal?: AbortSignal): Promise<TickerItem[]> {
+  const data = await fetchApi<TickerItem[]>('/ticker', signal)
   if (!Array.isArray(data)) return []
   return data.map((x) => (typeof x === 'string' ? { title: x } : { title: x.title, link: x.link }))
 }
 
-export async function fetchMapSpots(): Promise<MapSpot[]> {
-  const data = await fetchApi<MapSpot[]>('/map-spots')
+export async function fetchMapSpots(signal?: AbortSignal): Promise<MapSpot[]> {
+  const data = await fetchApi<MapSpot[]>('/map-spots', signal)
   return Array.isArray(data) ? data : []
 }
 
 export interface CalendarEvent {
-  date: string
+  id: string
+  dateTime: string
+  country: string
   event: string
-  time: string
+  actual?: string
+  forecast?: string
+  previous?: string
+  importance: number
+  currency?: string
 }
 
-export async function fetchCalendar(): Promise<CalendarEvent[]> {
-  const data = await fetchApi<CalendarEvent[]>('/calendar')
+export async function fetchCalendar(locale: 'zh' | 'en', signal?: AbortSignal): Promise<CalendarEvent[]> {
+  const data = await fetchApi<CalendarEvent[]>(`/calendar?lang=${locale}`, signal)
   return Array.isArray(data) ? data : []
+}
+
+export interface SourceHealthItem {
+  key: string
+  name: string
+  category: string
+  status: 'up' | 'down' | 'unknown'
+  message: string
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  meta?: Record<string, string | number | boolean | null | undefined>
+}
+
+export interface SourceHealthPayload {
+  ok: boolean
+  ts: number
+  sources: SourceHealthItem[]
+}
+
+export async function fetchSourceHealth(signal?: AbortSignal): Promise<SourceHealthPayload> {
+  return fetchApi<SourceHealthPayload>('/source-health', signal)
 }
 
 export interface DashboardPayload {
@@ -115,7 +162,7 @@ export interface DashboardPayload {
   }
 }
 
-export async function fetchDashboard(): Promise<DashboardPayload> {
-  const data = await fetchApi<DashboardPayload>('/dashboard')
+export async function fetchDashboard(signal?: AbortSignal): Promise<DashboardPayload> {
+  const data = await fetchApi<DashboardPayload>('/dashboard', signal)
   return data
 }

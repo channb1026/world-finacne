@@ -1,17 +1,44 @@
 import { useLocale } from '../i18n/LocaleContext'
-import { useData } from '../state/DataContext'
+import { useDataActions, useMarketData } from '../state/DataContext'
 import { getStockDisplayName } from '../i18n/displayNames'
-import { useFlashOnChange } from '../hooks/useFlashOnChange'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
   return date.toLocaleTimeString(tag, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function StockRow({
+  name,
+  symbol,
+  value,
+  change,
+  changePct,
+  locale,
+  animate,
+}: {
+  name: string
+  symbol: string
+  value: number
+  change: number
+  changePct: number
+  locale: 'zh' | 'en'
+  animate: boolean
+}) {
+  return (
+    <div className="stock-row">
+      <span className="stock-name">{getStockDisplayName(name, symbol, locale)}</span>
+      <span key={`${symbol}-${value}`} className={`stock-value ${animate ? 'value-flash' : ''}`}>{value.toLocaleString()}</span>
+      <span key={`${symbol}-${changePct}`} className={`stock-change ${change >= 0 ? 'up' : 'down'} ${animate ? 'value-flash' : ''}`}>
+        {change >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+      </span>
+    </div>
+  )
+}
+
 export function StocksPanel() {
   const { locale, t } = useLocale()
-  const { data, refreshMarket } = useData()
-  const { stocks, lastUpdated, error, loaded } = data
+  const { refreshMarket } = useDataActions()
+  const { stocks, lastUpdated, error, loaded } = useMarketData()
   const loadedOnce = loaded.stocks
 
   if (stocks.length === 0) {
@@ -33,23 +60,13 @@ export function StocksPanel() {
     <div className="panel stocks-panel">
       <div className="panel__title">
         {t('panel.stocks')}
-        {lastUpdated.market && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated.market, locale)}</span>}
+        {lastUpdated && <span className="panel__updated">{t('common.updated')} {formatLastUpdated(lastUpdated, locale)}</span>}
       </div>
       <div className="panel__subtitle">{t('panel.mainIndices')}</div>
       <div className="stocks-list">
-        {stocks.map((s) => {
-          const flashValue = useFlashOnChange(s.value, s.symbol)
-          const flashChange = useFlashOnChange(s.changePct, `${s.symbol}-chg`)
-          return (
-            <div key={s.symbol} className="stock-row">
-              <span className="stock-name">{getStockDisplayName(s.name, s.symbol, locale)}</span>
-              <span className={`stock-value ${flashValue ? 'value-flash' : ''}`}>{s.value.toLocaleString()}</span>
-              <span className={`stock-change ${s.change >= 0 ? 'up' : 'down'} ${flashChange ? 'value-flash' : ''}`}>
-                {s.change >= 0 ? '+' : ''}{s.changePct.toFixed(2)}%
-              </span>
-            </div>
-          )
-        })}
+        {stocks.map((s) => (
+          <StockRow key={s.symbol} {...s} locale={locale} animate={loadedOnce} />
+        ))}
       </div>
     </div>
   )

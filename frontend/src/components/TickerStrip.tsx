@@ -1,11 +1,11 @@
 import { useLocale } from '../i18n/LocaleContext'
-import { useData } from '../state/DataContext'
+import { useDataActions, useNewsData } from '../state/DataContext'
 import { isSafeLink } from '../utils/linkSafety'
 
 export function TickerStrip() {
   const { t } = useLocale()
-  const { data, refreshNews } = useData()
-  const { ticker, error, loaded } = data
+  const { refreshNews } = useDataActions()
+  const { ticker, error, loaded } = useNewsData()
   const loadedOnce = loaded.ticker
 
   if (ticker.length === 0) {
