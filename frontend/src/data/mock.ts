@@ -21,6 +21,11 @@ export interface NewsItem {
   category?: NewsCategory
   tags?: string[]
   marketScope?: 'global' | 'china' | 'a_share'
+  relatedSources?: string[]
+  sourceCount?: number
+  articleCount?: number
+  impactScore?: number
+  impactLevel?: 'normal' | 'medium' | 'high'
   link?: string
 }
 
@@ -75,6 +80,11 @@ export interface AShareNewsItem {
   category?: NewsCategory
   tags?: string[]
   marketScope?: 'global' | 'china' | 'a_share'
+  relatedSources?: string[]
+  sourceCount?: number
+  articleCount?: number
+  impactScore?: number
+  impactLevel?: 'normal' | 'medium' | 'high'
   link?: string
 }
 

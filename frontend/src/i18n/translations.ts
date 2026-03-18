@@ -53,6 +53,8 @@ export const messages: Record<string, { zh: string; en: string }> = {
   'panel.clickToWatch': { zh: '点击在新窗口观看直播', en: 'Click to watch in new window' },
   'panel.filterAll': { zh: '全部', en: 'All' },
   'panel.filterByCategory': { zh: '按分类筛选', en: 'Filter by category' },
+  'news.impact.high': { zh: '高影响', en: 'High impact' },
+  'news.impact.medium': { zh: '关注', en: 'Watch' },
 
   'regionDrawer.intel': { zh: '地区情报', en: 'Regional intel' },
   'regionDrawer.regionNews': { zh: '该地区资讯', en: 'News in this region' },

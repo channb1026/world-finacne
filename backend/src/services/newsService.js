@@ -235,6 +235,37 @@ const A_SHARE_SOURCE_PRIORITY = [
   '网易财经',
 ]
 
+const HOT_SOURCE_PRIORITY_MAP = new Map(HOT_SOURCE_PRIORITY.map((name, index) => [name, index]))
+const BREAKING_SOURCE_PRIORITY_MAP = new Map(BREAKING_SOURCE_PRIORITY.map((name, index) => [name, index]))
+const A_SHARE_SOURCE_PRIORITY_MAP = new Map(A_SHARE_SOURCE_PRIORITY.map((name, index) => [name, index]))
+
+const IMPACT_CATEGORY_WEIGHT = {
+  '央行/利率': 5,
+  '通胀/就业': 5,
+  '汇率/债券': 4,
+  '地缘/政策': 4,
+  '中国宏观': 4,
+  'A股盘面': 4,
+  '大宗商品': 3,
+  '股市/盘面': 3,
+  'A股公司': 3,
+  '公司/财报': 2,
+  '宏观': 3,
+}
+
+const IMPACT_TAG_WEIGHT = {
+  '美联储': 3,
+  '通胀': 3,
+  '就业': 3,
+  '人民币': 2,
+  '美债': 2,
+  '原油': 2,
+  '黄金': 2,
+  'A股': 2,
+  '科技股': 1,
+  '地产': 1,
+}
+
 function sortSourcesByPriority(names, priorityList) {
   const priority = new Map(priorityList.map((name, index) => [name, index]))
   return [...names].sort((a, b) => {
@@ -243,6 +274,62 @@ function sortSourcesByPriority(names, priorityList) {
     if (aRank !== bRank) return aRank - bRank
     return a.localeCompare(b)
   })
+}
+
+function getSourcePriorityBoost(source, priorityMap) {
+  if (!source || !priorityMap.has(source)) return 0
+  const rank = priorityMap.get(source)
+  return Math.max(0, 4 - rank)
+}
+
+function getRecencyBoost(pubDateMs) {
+  if (!pubDateMs) return 0
+  const ageMinutes = Math.max(0, (Date.now() - pubDateMs) / 60000)
+  if (ageMinutes <= 20) return 3
+  if (ageMinutes <= 90) return 2
+  if (ageMinutes <= 6 * 60) return 1
+  return 0
+}
+
+function scoreNewsImpact(item, priorityMap, context = 'hot') {
+  const categoryWeight = IMPACT_CATEGORY_WEIGHT[item.category] ?? 1
+  const tagWeight = (item.tags || []).reduce((total, tag) => total + (IMPACT_TAG_WEIGHT[tag] ?? 0), 0)
+  const sourceBoost = getSourcePriorityBoost(item.source, priorityMap)
+  const sourceCountBoost = Math.min(3, Math.max(0, (item.sourceCount || 1) - 1))
+  const articleCountBoost = Math.min(2, Math.max(0, (item.articleCount || 1) - 1))
+  const recencyBoost = getRecencyBoost(item.pubDateMs)
+
+  let score = categoryWeight + tagWeight + sourceBoost + sourceCountBoost + articleCountBoost + recencyBoost
+
+  if (context === 'breaking' && getRecencyBoost(item.pubDateMs) > 0) score += 1
+  if (context === 'a_share' && item.category === 'A股盘面') score += 1
+  if (context === 'hot' && ['央行/利率', '通胀/就业', '地缘/政策'].includes(item.category)) score += 1
+
+  return score
+}
+
+function getImpactLevel(score) {
+  if (score >= 12) return 'high'
+  if (score >= 8) return 'medium'
+  return 'normal'
+}
+
+function attachImpact(item, priorityMap, context) {
+  const impactScore = scoreNewsImpact(item, priorityMap, context)
+  return {
+    ...item,
+    impactScore,
+    impactLevel: getImpactLevel(impactScore),
+  }
+}
+
+function sortItemsByImpact(items, priorityMap, context) {
+  return [...items]
+    .map((item) => attachImpact(item, priorityMap, context))
+    .sort((a, b) => {
+      if ((b.impactScore || 0) !== (a.impactScore || 0)) return (b.impactScore || 0) - (a.impactScore || 0)
+      return (b.pubDateMs || 0) - (a.pubDateMs || 0)
+    })
 }
 
 let cache = { all: [], hot: [], breaking: [], byRegion: {}, updatedAt: 0 }
@@ -378,29 +465,93 @@ function areLikelySameStory(candidate, existing) {
   return false
 }
 
+function createStoryCluster(item) {
+  return {
+    representative: item,
+    relatedSources: new Set(item.source ? [item.source] : []),
+    articleCount: 1,
+  }
+}
+
+function mergeStoryCluster(cluster, item) {
+  cluster.articleCount += 1
+  if (item.source) cluster.relatedSources.add(item.source)
+
+  // 保留更新鲜的时间戳，但不强行替换标题与链接，避免代表项频繁抖动。
+  if ((item.pubDateMs || 0) > (cluster.representative.pubDateMs || 0)) {
+    cluster.representative = {
+      ...cluster.representative,
+      time: item.time,
+      pubDateMs: item.pubDateMs,
+      category: cluster.representative.category || item.category,
+      marketScope: cluster.representative.marketScope || item.marketScope,
+      tags: (cluster.representative.tags && cluster.representative.tags.length > 0)
+        ? cluster.representative.tags
+        : item.tags,
+    }
+  }
+}
+
+function finalizeStoryCluster(cluster) {
+  const relatedSources = [...cluster.relatedSources].filter(Boolean)
+  return {
+    ...cluster.representative,
+    relatedSources,
+    sourceCount: relatedSources.length,
+    articleCount: cluster.articleCount,
+  }
+}
+
 function dedupeItems(items, { limit }) {
-  const unique = []
+  const clusters = []
 
   for (const item of items) {
     const signature = headlineSignature(item.title)
     if (!signature && !item.link && !item.title) continue
-    if (unique.some((existing) => areLikelySameStory(item, existing))) continue
-    unique.push(item)
-    if (unique.length >= limit) break
+    const existingCluster = clusters.find((cluster) => areLikelySameStory(item, cluster.representative))
+    if (existingCluster) {
+      mergeStoryCluster(existingCluster, item)
+      continue
+    }
+    clusters.push(createStoryCluster(item))
+    if (clusters.length >= limit) break
   }
 
-  return unique
+  return clusters.map(finalizeStoryCluster)
 }
 
 function dedupeBucket(list) {
-  const unique = []
+  const clusters = []
   for (const item of list) {
     const signature = headlineSignature(item.title)
     if (!signature && !item.link && !item.title) continue
-    if (unique.some((existing) => areLikelySameStory(item, existing))) continue
-    unique.push(item)
+    const existingCluster = clusters.find((cluster) => areLikelySameStory(item, cluster.representative))
+    if (existingCluster) {
+      mergeStoryCluster(existingCluster, item)
+      continue
+    }
+    clusters.push(createStoryCluster(item))
   }
-  return unique
+  return clusters.map(finalizeStoryCluster)
+}
+
+function toSerializableNewsItem(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    source: item.source,
+    time: item.time,
+    region: item.region,
+    link: item.link,
+    category: item.category,
+    tags: item.tags,
+    marketScope: item.marketScope,
+    relatedSources: item.relatedSources,
+    sourceCount: item.sourceCount,
+    articleCount: item.articleCount,
+    impactScore: item.impactScore,
+    impactLevel: item.impactLevel,
+  }
 }
 
 async function fetchFeed(feedConfig, idStart) {
@@ -501,7 +652,11 @@ async function refreshCache() {
     }
     if (added === 0) break
   }
-  const hot = dedupeItems(hotCandidates, { limit: HOT_TARGET })
+  const hot = sortItemsByImpact(
+    dedupeItems(hotCandidates, { limit: HOT_TARGET * 2 }),
+    HOT_SOURCE_PRIORITY_MAP,
+    'hot'
+  ).slice(0, HOT_TARGET)
 
   // 快讯用：全球突发要闻（仅 breaking 源，按源轮询，与行业无关）
   const BREAKING_TARGET = 18
@@ -522,7 +677,11 @@ async function refreshCache() {
     }
     if (added === 0) break
   }
-  const breaking = dedupeItems(breakingCandidates, { limit: BREAKING_TARGET })
+  const breaking = sortItemsByImpact(
+    dedupeItems(breakingCandidates, { limit: BREAKING_TARGET * 2 }),
+    BREAKING_SOURCE_PRIORITY_MAP,
+    'breaking'
+  ).slice(0, BREAKING_TARGET)
 
   cache = {
     all: all.slice(0, 300),
@@ -577,15 +736,21 @@ export function startNewsBackgroundRefresh() {
 /** 热点财经：返回原文来源，由前端按界面语言展示中文/英文 */
 export async function getHotNews() {
   await ensureCache()
-  return cache.hot.map((item) => ({ ...item }))
+  return cache.hot.map(toSerializableNewsItem)
 }
 
 /** 地区情报：返回与该国相关的资讯；来源由前端按界面语言展示 */
 export async function getNewsByRegion(region) {
   if (!REGIONS.includes(region)) return []
   await ensureCache()
-  const raw = (cache.byRegion[region] || []).slice(0, REGION_ITEMS_MAX)
-  return raw.map((item) => ({ ...item }))
+  const raw = (cache.byRegion[region] || []).slice(0, 80)
+  return sortItemsByImpact(
+    dedupeItems(raw, { limit: REGION_ITEMS_MAX * 2 }),
+    HOT_SOURCE_PRIORITY_MAP,
+    'region'
+  )
+    .slice(0, REGION_ITEMS_MAX)
+    .map(toSerializableNewsItem)
 }
 
 export async function getAllNewsForMap() {
@@ -659,18 +824,12 @@ export async function getAShareNews() {
     }
     if (added === 0) break
   }
-  const aShare = dedupeItems(aShareCandidates, { limit: A_SHARE_TARGET })
-  const toItem = (n) => ({
-    id: n.id,
-    title: n.title,
-    source: n.source,
-    time: n.time,
-    link: n.link,
-    category: n.category,
-    tags: n.tags,
-    marketScope: n.marketScope,
-  })
-  return aShare.map(toItem)
+  const aShare = sortItemsByImpact(
+    dedupeItems(aShareCandidates, { limit: A_SHARE_TARGET * 2 }),
+    A_SHARE_SOURCE_PRIORITY_MAP,
+    'a_share'
+  ).slice(0, A_SHARE_TARGET)
+  return aShare.map(toSerializableNewsItem)
 }
 
 /** 快讯：全球突发要闻（仅综合/国际源），供底部单行滚动；返回 title + link 以支持点击打开 */

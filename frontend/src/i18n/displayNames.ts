@@ -211,3 +211,8 @@ export function getNewsTagDisplay(tag: string, locale: Locale): string {
   if (locale === 'zh') return tag
   return NEWS_TAG_EN[tag] ?? tag
 }
+
+export function getStoryClusterDisplay(sourceCount: number | undefined, locale: Locale): string {
+  if (!sourceCount || sourceCount <= 1) return ''
+  return locale === 'zh' ? `聚合 ${sourceCount} 源` : `${sourceCount} sources`
+}

@@ -90,10 +90,10 @@ describe('api routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    mockHotNews.mockResolvedValue([{ id: 'hot-1', title: 'Hot', source: 'Mock', time: 'now', category: '宏观', tags: [], marketScope: 'global' }])
-    mockNewsByRegion.mockResolvedValue([{ id: 'region-1', title: 'Region', source: 'Mock', time: 'now', category: '地缘/政策', tags: [], marketScope: 'global' }])
+    mockHotNews.mockResolvedValue([{ id: 'hot-1', title: 'Hot', source: 'Mock', time: 'now', category: '宏观', tags: [], marketScope: 'global', relatedSources: ['Mock', 'Mock 2'], sourceCount: 2, articleCount: 3 }])
+    mockNewsByRegion.mockResolvedValue([{ id: 'region-1', title: 'Region', source: 'Mock', time: 'now', category: '地缘/政策', tags: [], marketScope: 'global', relatedSources: ['Mock'], sourceCount: 1, articleCount: 1 }])
     mockMapSpots.mockResolvedValue([{ id: 'US', name: '美国', lat: 1, lng: 2, count: 3 }])
-    mockAShareNews.mockResolvedValue([{ id: 'ashare-1', title: 'A Share', source: 'Mock', time: 'now', category: 'A股盘面', tags: ['A股'], marketScope: 'a_share' }])
+    mockAShareNews.mockResolvedValue([{ id: 'ashare-1', title: 'A Share', source: 'Mock', time: 'now', category: 'A股盘面', tags: ['A股'], marketScope: 'a_share', relatedSources: ['Mock'], sourceCount: 1, articleCount: 1 }])
     mockTickerTitles.mockResolvedValue([{ title: 'Ticker', link: 'https://example.com' }])
 
     mockRates.mockResolvedValue([{ pair: 'USD/CNY', rate: 7.2, change: 0.01, changePct: 0.1 }])
@@ -114,7 +114,7 @@ describe('api routes', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.headers['Cache-Control']).toContain('max-age=30')
-    expect(res.body).toEqual([{ id: 'region-1', title: 'Region', source: 'Mock', time: 'now', category: '地缘/政策', tags: [], marketScope: 'global' }])
+    expect(res.body).toEqual([{ id: 'region-1', title: 'Region', source: 'Mock', time: 'now', category: '地缘/政策', tags: [], marketScope: 'global', relatedSources: ['Mock'], sourceCount: 1, articleCount: 1 }])
     expect(mockNewsByRegion).toHaveBeenCalledWith('US')
   })
 
@@ -143,7 +143,7 @@ describe('api routes', () => {
     await routes['/api/news']({ query: {} }, res)
 
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual([{ id: 'hot-1', title: 'Hot', source: 'Mock', time: 'now', category: '宏观', tags: [], marketScope: 'global' }])
+    expect(res.body).toEqual([{ id: 'hot-1', title: 'Hot', source: 'Mock', time: 'now', category: '宏观', tags: [], marketScope: 'global', relatedSources: ['Mock', 'Mock 2'], sourceCount: 2, articleCount: 3 }])
     expect(mockHotNews).toHaveBeenCalledTimes(1)
     expect(mockNewsByRegion).not.toHaveBeenCalled()
   })

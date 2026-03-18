@@ -50,4 +50,21 @@ describe('newsService', () => {
     expect(hot[0]).toHaveProperty('marketScope')
     expect(Array.isArray(hot[0].tags)).toBe(true)
   })
+
+  it('getHotNews 会附带事件聚合字段', async () => {
+    const hot = await getHotNews()
+    expect(hot[0]).toHaveProperty('sourceCount')
+    expect(hot[0]).toHaveProperty('articleCount')
+    expect(Array.isArray(hot[0].relatedSources)).toBe(true)
+    expect(hot[0].sourceCount).toBeGreaterThan(0)
+    expect(hot[0].articleCount).toBeGreaterThan(0)
+  })
+
+  it('getHotNews 会附带重要性字段', async () => {
+    const hot = await getHotNews()
+    expect(hot[0]).toHaveProperty('impactScore')
+    expect(hot[0]).toHaveProperty('impactLevel')
+    expect(typeof hot[0].impactScore).toBe('number')
+    expect(['normal', 'medium', 'high']).toContain(hot[0].impactLevel)
+  })
 })

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData, useNewsData } from '../state/DataContext'
-import { getAShareIndexDisplayName, getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay } from '../i18n/displayNames'
+import { getAShareIndexDisplayName, getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay, getStoryClusterDisplay } from '../i18n/displayNames'
 import { isSafeLink } from '../utils/linkSafety'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
@@ -132,6 +132,18 @@ export function ASharePanel() {
           ) : (
             visibleNews.map((n) => {
               const href = isSafeLink(n.link) ? n.link : undefined
+              const clusterLabel = getStoryClusterDisplay(n.sourceCount, locale)
+              const relatedSources = (n.relatedSources || [])
+                .map((source) => getNewsSourceDisplay(source, locale))
+                .filter(Boolean)
+              const visibleSources = relatedSources.slice(0, 3)
+              const remainingSources = Math.max(0, relatedSources.length - visibleSources.length)
+              const clusterTitle = relatedSources.length > 1 ? relatedSources.join(' / ') : undefined
+              const impactLabel = n.impactLevel === 'high'
+                ? t('news.impact.high')
+                : n.impactLevel === 'medium'
+                  ? t('news.impact.medium')
+                  : ''
               return (
                 <li key={n.id} className="a-share-news-item">
                   <div className="a-share-news-item__row">
@@ -147,11 +159,27 @@ export function ASharePanel() {
                         {getNewsCategoryDisplay(n.category, locale)}
                       </span>
                     )}
+                    {impactLabel && (
+                      <span className={`news-item__impact news-item__impact--${n.impactLevel}`}>
+                        {impactLabel}
+                      </span>
+                    )}
                   </div>
-                  <span className="a-share-news-item__meta">
+                  <span className="a-share-news-item__meta" title={clusterTitle}>
                     {getNewsSourceDisplay(n.source, locale)} · {n.time}
+                    {clusterLabel ? ` · ${clusterLabel}` : ''}
                     {n.tags && n.tags.length > 0 ? ` · ${n.tags.slice(0, 2).map((tag) => getNewsTagDisplay(tag, locale)).join(' / ')}` : ''}
                   </span>
+                  {relatedSources.length > 1 && (
+                    <div className="news-item__sources" title={clusterTitle}>
+                      {visibleSources.map((source) => (
+                        <span key={source} className="news-item__source-chip">{source}</span>
+                      ))}
+                      {remainingSources > 0 && (
+                        <span className="news-item__source-chip news-item__source-chip--more">+{remainingSources}</span>
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })
