@@ -314,6 +314,123 @@ html, body, #root {
   border-color: var(--glow);
   background: color-mix(in srgb, var(--glow) 10%, var(--bg-card));
 }
+.news-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.news-context-summary {
+  margin: -2px 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.news-lead-summary {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(88, 166, 255, 0.14);
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.08), rgba(88, 166, 255, 0.02));
+}
+.news-lead-summary__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.news-lead-summary__text {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.news-impact-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 10px;
+}
+.news-impact-overview__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.news-impact-overview__count {
+  color: var(--text);
+}
+.news-overview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.news-overview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.news-overview-chip__label {
+  color: var(--text);
+}
+.news-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.news-timeline__bucket {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+}
+.news-timeline__window {
+  font-size: 10px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.news-timeline__count {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.news-timeline__category {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.news-context-bar--compact {
+  margin-bottom: 8px;
+}
+.news-context-bar__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(88, 166, 255, 0.08);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  color: var(--accent);
+  font-size: 10px;
+  white-space: nowrap;
+}
 /* 地图容器：填满中间列剩余高度，保证最小高度以便 Leaflet 正确渲染 */
 .map-wrap {
   flex: 1;
@@ -529,7 +646,61 @@ html, body, #root {
   border-color: rgba(88, 166, 255, 0.28);
   background: rgba(88, 166, 255, 0.08);
 }
+.news-item__stage {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.news-item__stage--new {
+  color: #93e7ff;
+  border-color: rgba(147, 231, 255, 0.24);
+  background: rgba(147, 231, 255, 0.08);
+}
+.news-item__stage--developing {
+  color: #ffc987;
+  border-color: rgba(255, 201, 135, 0.24);
+  background: rgba(255, 201, 135, 0.08);
+}
+.news-item__stage--watch {
+  color: #f0b6ff;
+  border-color: rgba(240, 182, 255, 0.24);
+  background: rgba(240, 182, 255, 0.08);
+}
 .news-item__meta { color: var(--text-muted); font-size: 11px; }
+.news-item__context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.news-item__context-label {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.news-item__context--asset {
+  margin-top: 4px;
+}
+.news-item__context-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.16);
+  color: #91e2a6;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.news-item__context-chip--asset {
+  color: #c9d8ff;
+  border-color: rgba(128, 170, 255, 0.18);
+  background: rgba(128, 170, 255, 0.08);
+}
 .news-item__sources {
   display: flex;
   flex-wrap: wrap;
@@ -550,6 +721,53 @@ html, body, #root {
 }
 .news-item__source-chip--more {
   color: var(--text);
+}
+.news-item__related {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.news-item__related--compact {
+  margin-top: 6px;
+}
+.news-item__related-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+}
+.news-item__related-source {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.news-item__related-sep {
+  color: var(--text-muted);
+}
+.news-item__related-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  min-width: 0;
+}
+.news-item__related-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.news-item__expand {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.news-item__expand:hover {
+  text-decoration: underline;
 }
 /* 股市条：名称 | 点位(固定列宽右对齐) | 涨跌(固定列宽右对齐) */
 .stock-row {

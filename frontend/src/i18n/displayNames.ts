@@ -196,6 +196,12 @@ const NEWS_TAG_EN: Record<string, string> = {
   '地产': 'Property',
 }
 
+const MARKET_SCOPE_EN: Record<string, string> = {
+  global: 'Global',
+  china: 'China',
+  a_share: 'A-share',
+}
+
 export function getNewsSourceDisplay(source: string, locale: Locale): string {
   if (locale === 'zh') return SOURCE_ZH[source] ?? source
   return SOURCE_EN[source] ?? source
@@ -215,4 +221,14 @@ export function getNewsTagDisplay(tag: string, locale: Locale): string {
 export function getStoryClusterDisplay(sourceCount: number | undefined, locale: Locale): string {
   if (!sourceCount || sourceCount <= 1) return ''
   return locale === 'zh' ? `聚合 ${sourceCount} 源` : `${sourceCount} sources`
+}
+
+export function getMarketScopeDisplay(scope: string, locale: Locale): string {
+  if (locale === 'zh') {
+    if (scope === 'global') return '全球'
+    if (scope === 'china') return '中国'
+    if (scope === 'a_share') return 'A股'
+    return scope
+  }
+  return MARKET_SCOPE_EN[scope] ?? scope
 }

@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useLocale } from '../i18n/LocaleContext'
 import { useDataActions, useMarketData, useNewsData } from '../state/DataContext'
-import { getAShareIndexDisplayName, getNewsCategoryDisplay, getNewsSourceDisplay, getNewsTagDisplay, getStoryClusterDisplay } from '../i18n/displayNames'
-import { isSafeLink } from '../utils/linkSafety'
+import { getAShareIndexDisplayName, getMarketScopeDisplay, getNewsCategoryDisplay } from '../i18n/displayNames'
+import { NewsEventCard } from './NewsEventCard'
+import { isMarketMovingItem, rankNewsWithMarketContext, summarizeAssetImpacts } from '../utils/newsContextRanking'
+import { buildLeadSummary, summarizeScopeMix, summarizeThemeMix } from '../utils/newsOverview'
+import { filterNewsByWindow, type TimeWindowKey } from '../utils/newsTimeWindow'
+import { summarizeNewsTimeline } from '../utils/newsTimeline'
 
 function formatLastUpdated(date: Date, locale: 'zh' | 'en'): string {
   const tag = locale === 'en' ? 'en-US' : 'zh-CN'
@@ -47,6 +51,8 @@ export function ASharePanel() {
   const loadedOnceIndices = marketLoaded.aShareIndices
   const loadedOnceNews = newsLoaded.aShareNews
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedWindow, setSelectedWindow] = useState<TimeWindowKey>('24h')
+  const [marketMovingOnly, setMarketMovingOnly] = useState(false)
 
   const categories = useMemo(() => {
     const counts = new Map<string, number>()
@@ -63,10 +69,48 @@ export function ASharePanel() {
     ? 'all'
     : selectedCategory
 
+  const rankedNews = useMemo(() => (
+    rankNewsWithMarketContext(aShareNews, { keyMetrics: [], commodities: [], aShareIndices }, locale)
+  ), [aShareIndices, aShareNews, locale])
+
+  const windowedNews = useMemo(
+    () => filterNewsByWindow(rankedNews.items, selectedWindow),
+    [rankedNews.items, selectedWindow],
+  )
+
   const visibleNews = useMemo(() => {
-    if (activeCategory === 'all') return aShareNews
-    return aShareNews.filter((item) => item.category === activeCategory)
-  }, [aShareNews, activeCategory])
+    const categoryFiltered = activeCategory === 'all'
+      ? windowedNews
+      : windowedNews.filter((item) => item.category === activeCategory)
+    return marketMovingOnly ? categoryFiltered.filter(isMarketMovingItem) : categoryFiltered
+  }, [activeCategory, marketMovingOnly, windowedNews])
+  const impactOverview = useMemo(
+    () => summarizeAssetImpacts(visibleNews, locale).slice(0, 4),
+    [locale, visibleNews],
+  )
+  const timeline = useMemo(
+    () => summarizeNewsTimeline(rankedNews.items),
+    [rankedNews.items],
+  )
+  const themeMix = useMemo(
+    () => summarizeThemeMix(visibleNews, 3),
+    [visibleNews],
+  )
+  const scopeMix = useMemo(
+    () => summarizeScopeMix(visibleNews, 3),
+    [visibleNews],
+  )
+  const leadSummary = useMemo(
+    () => buildLeadSummary({
+      locale,
+      signals: rankedNews.signals,
+      themeMix,
+      scopeMix,
+      timeline,
+      itemCount: visibleNews.length,
+    }),
+    [locale, rankedNews.signals, scopeMix, themeMix, timeline, visibleNews.length],
+  )
 
   return (
     <div className="panel panel--fill a-share-panel">
@@ -117,6 +161,84 @@ export function ASharePanel() {
             ))}
           </div>
         )}
+        <div className="panel__filters" aria-label={t('panel.filterByWindow')}>
+          {(['1h', '4h', '24h', 'all'] as TimeWindowKey[]).map((windowKey) => (
+            <button
+              key={windowKey}
+              type="button"
+              className={`panel__filter-btn ${selectedWindow === windowKey ? 'is-active' : ''}`}
+              onClick={() => setSelectedWindow(windowKey)}
+            >
+              {t(`panel.window.${windowKey}`)}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`panel__filter-btn ${marketMovingOnly ? 'is-active' : ''}`}
+            onClick={() => setMarketMovingOnly((value) => !value)}
+          >
+            {t('panel.filterMarketMoving')}
+          </button>
+        </div>
+        {rankedNews.signals.length > 0 && (
+          <>
+            <div className="news-lead-summary">
+              <span className="news-lead-summary__label">{t('news.leadSummary')}</span>
+              <div className="news-lead-summary__text">{leadSummary}</div>
+            </div>
+            <div className="news-context-summary">
+              {t('news.currentTheme')}: {rankedNews.signals.map((signal) => signal.label).join(' / ')}
+            </div>
+            <div className="news-context-bar news-context-bar--compact">
+              {rankedNews.signals.map((signal) => (
+                <span key={signal.id} className="news-context-bar__chip">{signal.label}</span>
+              ))}
+            </div>
+          </>
+        )}
+        {impactOverview.length > 0 && (
+          <div className="news-impact-overview" aria-label={t('news.assetOverview')}>
+            {impactOverview.map((impact) => (
+              <span key={impact.id} className="news-impact-overview__chip">
+                {impact.label}
+                <span className="news-impact-overview__count">{impact.count}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        {themeMix.length > 0 && (
+          <div className="news-overview-row" aria-label={t('news.themeMix')}>
+            {themeMix.map((entry) => (
+              <span key={entry.key} className="news-overview-chip">
+                <span className="news-overview-chip__label">{getNewsCategoryDisplay(entry.key, locale)}</span>
+                {entry.count}
+              </span>
+            ))}
+          </div>
+        )}
+        {scopeMix.length > 0 && (
+          <div className="news-overview-row" aria-label={t('news.scopeMix')}>
+            {scopeMix.map((entry) => (
+              <span key={entry.key} className="news-overview-chip">
+                <span className="news-overview-chip__label">{getMarketScopeDisplay(entry.key, locale)}</span>
+                {entry.count}
+              </span>
+            ))}
+          </div>
+        )}
+        {timeline.some((bucket) => bucket.count > 0) && (
+          <div className="news-timeline" aria-label={t('news.timeline')}>
+            {timeline.map((bucket) => (
+              <div key={bucket.key} className="news-timeline__bucket">
+                <div className="news-timeline__window">{t(`panel.window.${bucket.key}`)}</div>
+                <div className="news-timeline__count">{bucket.count}</div>
+                <div className="news-timeline__category">
+                  {bucket.topCategory ? getNewsCategoryDisplay(bucket.topCategory, locale) : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <ul className="a-share-news-list">
           {aShareNews.length === 0 ? (
             <li className="a-share-news-item">
@@ -130,59 +252,11 @@ export function ASharePanel() {
               <span>{t('common.noData')}</span>
             </li>
           ) : (
-            visibleNews.map((n) => {
-              const href = isSafeLink(n.link) ? n.link : undefined
-              const clusterLabel = getStoryClusterDisplay(n.sourceCount, locale)
-              const relatedSources = (n.relatedSources || [])
-                .map((source) => getNewsSourceDisplay(source, locale))
-                .filter(Boolean)
-              const visibleSources = relatedSources.slice(0, 3)
-              const remainingSources = Math.max(0, relatedSources.length - visibleSources.length)
-              const clusterTitle = relatedSources.length > 1 ? relatedSources.join(' / ') : undefined
-              const impactLabel = n.impactLevel === 'high'
-                ? t('news.impact.high')
-                : n.impactLevel === 'medium'
-                  ? t('news.impact.medium')
-                  : ''
-              return (
-                <li key={n.id} className="a-share-news-item">
-                  <div className="a-share-news-item__row">
-                    {href ? (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="a-share-news-item__title a-share-news-item__link">
-                        {n.title}
-                      </a>
-                    ) : (
-                      <span className="a-share-news-item__title">{n.title}</span>
-                    )}
-                    {n.category && (
-                      <span className="news-item__tag" data-category={n.category}>
-                        {getNewsCategoryDisplay(n.category, locale)}
-                      </span>
-                    )}
-                    {impactLabel && (
-                      <span className={`news-item__impact news-item__impact--${n.impactLevel}`}>
-                        {impactLabel}
-                      </span>
-                    )}
-                  </div>
-                  <span className="a-share-news-item__meta" title={clusterTitle}>
-                    {getNewsSourceDisplay(n.source, locale)} · {n.time}
-                    {clusterLabel ? ` · ${clusterLabel}` : ''}
-                    {n.tags && n.tags.length > 0 ? ` · ${n.tags.slice(0, 2).map((tag) => getNewsTagDisplay(tag, locale)).join(' / ')}` : ''}
-                  </span>
-                  {relatedSources.length > 1 && (
-                    <div className="news-item__sources" title={clusterTitle}>
-                      {visibleSources.map((source) => (
-                        <span key={source} className="news-item__source-chip">{source}</span>
-                      ))}
-                      {remainingSources > 0 && (
-                        <span className="news-item__source-chip news-item__source-chip--more">+{remainingSources}</span>
-                      )}
-                    </div>
-                  )}
-                </li>
-              )
-            })
+            visibleNews.map((n) => (
+              <li key={n.id} className="a-share-news-item">
+                <NewsEventCard item={n} compact />
+              </li>
+            ))
           )}
         </ul>
       </div>

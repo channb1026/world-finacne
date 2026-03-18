@@ -12,6 +12,13 @@ export interface FxPair {
 
 export type NewsCategory = string
 
+export interface RelatedNewsItem {
+  title: string
+  source: string
+  time: string
+  link?: string
+}
+
 export interface NewsItem {
   id: string
   title: string
@@ -21,11 +28,17 @@ export interface NewsItem {
   category?: NewsCategory
   tags?: string[]
   marketScope?: 'global' | 'china' | 'a_share'
+  publishedAtMs?: number
   relatedSources?: string[]
   sourceCount?: number
   articleCount?: number
+  relatedItems?: RelatedNewsItem[]
   impactScore?: number
   impactLevel?: 'normal' | 'medium' | 'high'
+  contextSignals?: string[]
+  contextBoost?: number
+  assetImpacts?: string[]
+  lifecycleStage?: 'new' | 'developing' | 'watch'
   link?: string
 }
 
@@ -80,11 +93,17 @@ export interface AShareNewsItem {
   category?: NewsCategory
   tags?: string[]
   marketScope?: 'global' | 'china' | 'a_share'
+  publishedAtMs?: number
   relatedSources?: string[]
   sourceCount?: number
   articleCount?: number
+  relatedItems?: RelatedNewsItem[]
   impactScore?: number
   impactLevel?: 'normal' | 'medium' | 'high'
+  contextSignals?: string[]
+  contextBoost?: number
+  assetImpacts?: string[]
+  lifecycleStage?: 'new' | 'developing' | 'watch'
   link?: string
 }
 

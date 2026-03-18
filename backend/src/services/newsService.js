@@ -470,12 +470,31 @@ function createStoryCluster(item) {
     representative: item,
     relatedSources: new Set(item.source ? [item.source] : []),
     articleCount: 1,
+    relatedItems: [{
+      title: item.title,
+      source: item.source,
+      time: item.time,
+      link: item.link,
+    }],
   }
 }
 
 function mergeStoryCluster(cluster, item) {
   cluster.articleCount += 1
   if (item.source) cluster.relatedSources.add(item.source)
+  const normalizedLink = item.link ? item.link.replace(/[?#].*$/, '') : ''
+  const alreadyIncluded = cluster.relatedItems.some((entry) => {
+    const entryLink = entry.link ? entry.link.replace(/[?#].*$/, '') : ''
+    return (normalizedLink && entryLink && normalizedLink === entryLink) || entry.title === item.title
+  })
+  if (!alreadyIncluded) {
+    cluster.relatedItems.push({
+      title: item.title,
+      source: item.source,
+      time: item.time,
+      link: item.link,
+    })
+  }
 
   // 保留更新鲜的时间戳，但不强行替换标题与链接，避免代表项频繁抖动。
   if ((item.pubDateMs || 0) > (cluster.representative.pubDateMs || 0)) {
@@ -494,11 +513,15 @@ function mergeStoryCluster(cluster, item) {
 
 function finalizeStoryCluster(cluster) {
   const relatedSources = [...cluster.relatedSources].filter(Boolean)
+  const relatedItems = cluster.relatedItems
+    .filter((entry) => entry.title && entry.source)
+    .slice(0, 5)
   return {
     ...cluster.representative,
     relatedSources,
     sourceCount: relatedSources.length,
     articleCount: cluster.articleCount,
+    relatedItems,
   }
 }
 
@@ -546,9 +569,11 @@ function toSerializableNewsItem(item) {
     category: item.category,
     tags: item.tags,
     marketScope: item.marketScope,
+    publishedAtMs: item.pubDateMs,
     relatedSources: item.relatedSources,
     sourceCount: item.sourceCount,
     articleCount: item.articleCount,
+    relatedItems: item.relatedItems,
     impactScore: item.impactScore,
     impactLevel: item.impactLevel,
   }
