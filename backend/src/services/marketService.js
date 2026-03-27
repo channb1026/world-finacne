@@ -205,6 +205,8 @@ const STOCK_SYMBOLS = [
   { symbol: '^IXIC', name: '纳斯达克' },
   { symbol: '^GSPC', name: '标普 500' },
   { symbol: '^N225', name: '日经 225' },
+  { symbol: '^KS11', name: '韩国综指' },
+  { symbol: '^BSESN', name: '印度 Sensex' },
   { symbol: '^GDAXI', name: '德国 DAX' },
   { symbol: '^FTSE', name: '富时 100' },
   { symbol: '^FCHI', name: '法国 CAC40' },
